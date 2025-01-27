@@ -6,4 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiomqtt>=2.3.0",
+    "peewee>=3.17.8",
+    "python-dotenv>=1.0.1",
 ]
