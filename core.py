@@ -1,17 +1,30 @@
 import asyncio
 import logging
 import os
-import time
-from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass
-from typing import Any
-from parser import ReadEvent
+from datetime import datetime as dt
+from datetime import timezone as tz
+from datetime import timedelta as td
 
-from peewee import AutoField, BooleanField, CharField, Model, SqliteDatabase
+from functools import partial
+from parser import ReadEvent
+from typing import Any
+
+from peewee import (
+    AutoField,
+    BooleanField,
+    CharField,
+    DateTimeField,
+    Model,
+    SqliteDatabase,
+)
 
 logr = logging.getLogger("RFID Gateway")
-TIMEOUT = float(os.environ.get("KEON_MQTT_DATA_TIMEOUT", 10.0))
-cache = {}
+logging.basicConfig(level=logging.DEBUG)
+
+now = partial(dt.now, tz.utc)
+TIMEOUT = td(seconds=float(os.environ.get("KEON_MQTT_DATA_TIMEOUT", 10.0)))
 
 db = SqliteDatabase("tags.db")
 db.connect()
@@ -38,6 +51,7 @@ class TagRFID(BaseModel):
     tag_id = CharField(index=True)
     active = BooleanField(default=False)
     location = CharField(default="unknown")
+    lseen = DateTimeField()
 
 
 TagRFID.create_table(safe=True)
@@ -53,22 +67,22 @@ CallbackSequence = Sequence[Callable[[Any], Coroutine]]
 
 
 async def processEvent(evt: ReadEvent, onEvents: CallbackSequence):
-    tag, _ = TagRFID.get_or_create(tag_id=evt.tag_id)
+    tag, _ = TagRFID.get_or_create(tag_id=evt.tag_id, defaults={"lseen": dt.now()})
 
-    if evt.tag_id in cache and cache[evt.tag_id].evt.location != evt.location:
+    if tag.location != evt.location:
         logr.info(f"Tag CHANGE LOCATION for {evt}")
-        tag.update_instance(location=evt.location)
+        tag.location = evt.location
         await onEvents[0](evt)
 
     if not tag.active:
         logr.info(f"Tag APPEARED for {evt}")
-        tag.update_instance(active=True)
+        tag.active = True
         await onEvents[1](evt, True)
-    cache[evt.tag_id] = CEntry(t=time.time(), evt=evt)
 
+    tag.update_instance(lseen=dt.now())
     logr.info(f"Tag PRESENT for {evt}")
-    await asyncio.sleep(TIMEOUT)
-    if (time.time() - cache[evt.tag_id].t) > (TIMEOUT - 0.01):
+    await asyncio.sleep(TIMEOUT.seconds + TIMEOUT.microseconds / 1e6)
+    if (dt.now() - TagRFID.get_by_id(tag._id).lseen) > (TIMEOUT - td(seconds=0.01)):
         logr.info(f"Tag LOST for {evt}")
         tag.update_instance(active=False)
         await onEvents[1](evt, False)
