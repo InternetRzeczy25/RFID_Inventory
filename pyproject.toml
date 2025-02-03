@@ -1,11 +1,11 @@
 [project]
-name = "gownoiot"
+name = "IOT"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiomqtt>=2.3.0",
-    "peewee>=3.17.8",
     "python-dotenv>=1.0.1",
+    "tortoise-orm[asyncmy]>=0.24.0",
 ]
