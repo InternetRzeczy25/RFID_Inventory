@@ -19,15 +19,16 @@ def assemble_mqtt_config(events_dir: pl.Path):
             )
     return config
 
+CONFIG_DIR = pl.Path(__file__).parent / "config"
 
 def read_config():
-    with open(pl.Path(__file__).parent / "KEONN_config.json") as jason:
+    with open(CONFIG_DIR / "KEONN_config.json") as jason:
         default_config = json.load(jason)
 
         my_IP = socket.gethostbyname(socket.gethostname())
         default_config["broker"] = f"tcp://{my_IP}:1883"
 
-        mqtt_conf = assemble_mqtt_config(pl.Path(__file__).parent / "events")
+        mqtt_conf = assemble_mqtt_config(CONFIG_DIR / "events")
         default_config["config"] = json.dumps(mqtt_conf)
         return default_config
 
