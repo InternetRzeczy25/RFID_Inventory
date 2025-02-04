@@ -10,7 +10,7 @@
             "args": [
                 "-v",
                 "-c",
-                "${workspaceFolder}\\mosquitto.conf"
+                "${workspaceFolder}\\config\\mosquitto.conf"
             ],
             "options": {
                 "cwd": "C:\\Program Files\\mosquitto"
