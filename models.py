@@ -1,8 +1,10 @@
+from enum import IntEnum
+
 from tortoise import fields
 from tortoise.models import Model
 
 
-class Devices(Model):
+class Device(Model):
     _id = fields.IntField(pk=True)
     last_active_at = fields.DatetimeField()
     name = fields.CharField(max_length=255)
@@ -12,28 +14,36 @@ class Devices(Model):
     meta = fields.JSONField()
 
 
-class Locations(Model):
+class Location(Model):
     _id = fields.CharField(pk=True, max_length=255)  # MAC+... as key
     name = fields.CharField(max_length=255)
-    device = fields.ForeignKeyField("models.Devices", related_name="locations")
+    device = fields.ForeignKeyField("models.Device", related_name="locations")
 
 
-class Tags(Model):
+class TagStatus(IntEnum):
+    ACTIVE = 0
+    LOST = 1
+
+
+class Tag(Model):
     _id = fields.IntField(pk=True)
     last_active_at = fields.DatetimeField()
     epc = fields.CharField(max_length=255, index=True, unique=True)
-    status = fields.IntField(index=True)
+    status: TagStatus = fields.IntEnumField(TagStatus, index=True)
     last_loc_seen = fields.ForeignKeyField(
-        "models.Locations", related_name="tags", null=True
+        "models.Location", related_name="tag", null=True
     )
-    name = fields.CharField(max_length=255)
-    description = fields.TextField()
+    name = fields.CharField(max_length=255, default="-")
+    description = fields.TextField(default="-")
     RSSI = fields.IntField()
 
+    def __repr__(self):
+        return self.name
 
-class Events(Model):
+
+class Event(Model):
     _id = fields.IntField(pk=True)
-    tag = fields.ForeignKeyField("models.Tags", related_name="events")
+    tag = fields.ForeignKeyField("models.Tag", related_name="event")
     event = fields.IntField()
     notified = fields.BooleanField()
     data = fields.JSONField()
