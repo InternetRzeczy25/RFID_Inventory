@@ -91,11 +91,30 @@ def xml_request_from_dict(data: dict[str, str]) -> ET.Element:
         el.text = data[attr]
         req.append(el)
     return req
-    for child in root.find("data"):
-        if child.tag in config:
-            child.text = config[child.tag]
-        req.append(child)
-    device_api.put("/system/services/byId/MQTTService", req)
+
+
+def restart_device(device_api: API):
+    device_api.get("/system/runtime/reboot")
+
+
+def __def_to_location(def_: str, mac: str = "") -> tuple[str, str]:
+    """transform KEONN definition string to our system location id and antenna name
+    def_ format is described on page 43 of the AdvanNet REST protocol reference
+    """
+    spl = def_.split(",")
+    return f"{mac}/{spl[1]}/{spl[2]}/{spl[3]}", spl[5]
+
+
+def get_locations(device_api: API):
+    root = device_api.get_xml("/devices")
+    device_id = root.find(".//device/id").text
+    mac = root.find(".//device/mac").text
+    loc_root = device_api.get_xml(f"/devices/{device_id}/antennas")
+
+    return (
+        __def_to_location(d.text, mac)
+        for d in loc_root.iterfind(".//data/entries/entry/def")
+    )
 
 
 def configure_keonn(device_api: API):
@@ -125,7 +144,9 @@ if __name__ == "__main__":
         print("Device ID:", device_id)
         print("Active Read Mode:", active_read_mode)
 
-        configure_keonn(api)
-        print("Configuration done")
+        print("Locations:", *get_locations(api))
+
+        # configure_keonn(api)
+        # print("Configuration done")
     except ConnectionError:
         raise ConnectionError
