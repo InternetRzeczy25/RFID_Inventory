@@ -9,4 +9,5 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "tortoise-orm[asyncmy]>=0.24.0",
     "requests>=2.32.3",
+    "zeroconf>=0.143.0",
 ]
