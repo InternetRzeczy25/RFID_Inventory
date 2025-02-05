@@ -1,9 +1,12 @@
-import requests
-from requests.auth import HTTPDigestAuth
-import xml.etree.ElementTree as ET
 import json
 import pathlib as pl
+import re
 import socket
+import xml.etree.ElementTree as ET
+from typing import Any
+
+import requests
+from requests.auth import HTTPDigestAuth
 
 
 def assemble_mqtt_config(events_dir: pl.Path):
@@ -13,16 +16,18 @@ def assemble_mqtt_config(events_dir: pl.Path):
             config.append(
                 {
                     "event": file.stem,
-                    "topic": "RFID/devices",
-                    "config": js.read().replace("\n", ""),
+                    "topic": "'RFID/devices'",
+                    "body": re.sub(r"\s+", " ", js.read().replace('"', "'")),
                 }
             )
     return config
 
+
 CONFIG_DIR = pl.Path(__file__).parent / "config"
 
-def read_config():
-    with open(CONFIG_DIR / "KEONN_config.json") as jason:
+
+def get_mqtt_service_config() -> dict[str, str]:
+    with open(CONFIG_DIR / "service.json") as jason:
         default_config = json.load(jason)
 
         my_IP = socket.gethostbyname(socket.gethostname())
@@ -33,7 +38,7 @@ def read_config():
         return default_config
 
 
-class XML_API:
+class API:
     __IP: str
     auth = HTTPDigestAuth("admin", "admin")
 
@@ -48,25 +53,44 @@ class XML_API:
         )
         if res.status_code != 200:
             raise ConnectionError
+        return res
+
+    def get_xml(self, path: str, **kwargs):
+        res = self.get(path, **kwargs)
         return ET.fromstring(res.text)
 
-    def put(self, path: str, data: ET.ElementTree, **kwargs):
+    def put(self, path: str, data: Any, **kwargs):
         res = requests.put(
             url=f"http://{self.__IP}:3161{path}",
-            data=ET.tostring(data),
+            data=data,
             auth=kwargs.pop("auth", self.auth),
-            headers={"Content-Type": "application/xml"},
             **kwargs,
         )
         if res.status_code != 200:
             raise ConnectionError
+        print(res.text)
+        return res
+
+    def put_xml(self, path: str, data: ET.Element, **kwargs):
+        kwargs["headers"] = kwargs.get("headers", {}).update(
+            {"Content-Type": "application/xml"}
+        )
+        res = self.put(path, ET.tostring(data), **kwargs)
         return ET.fromstring(res.text)
 
 
-def configure_keonn(config: dict, device_api: XML_API):
-    # to add: set mode to autonomous
-    root = device_api.get("/system/services/byId/MQTTService")
+def cfg_to_dict(path: pl.Path) -> dict[str, str]:
+    with open(path) as jason:
+        return json.load(jason)
+
+
+def xml_request_from_dict(data: dict[str, str]) -> ET.Element:
     req = ET.Element("request")
+    for attr in data:
+        el = ET.Element(attr)
+        el.text = data[attr]
+        req.append(el)
+    return req
     for child in root.find("data"):
         if child.tag in config:
             child.text = config[child.tag]
@@ -74,17 +98,34 @@ def configure_keonn(config: dict, device_api: XML_API):
     device_api.put("/system/services/byId/MQTTService", req)
 
 
+def configure_keonn(device_api: API):
+    root = device_api.get_xml("/devices")
+    device_id = root.find(".//device/id").text
+    active_read_mode = root.find(".//device/activeReadMode").text
+    if active_read_mode != "AUTONOMOUS":
+        device_api.put(f"/devices/{device_id}/activeDeviceMode", data="Autonomous")
+        device_api.put(f"/devices/{device_id}/activeReadMode", data="AUTONOMOUS")
+        mode_conf = cfg_to_dict(CONFIG_DIR / "readmode.json")
+        req = xml_request_from_dict(mode_conf)
+        device_api.put_xml(f"/devices/{device_id}/readMode", req)
+
+    mqtt_conf = get_mqtt_service_config()
+    mqtt_conf["clientId"] = device_id
+    req = xml_request_from_dict(mqtt_conf)
+    device_api.put_xml("/system/services/byId/MQTTService", req)
+
+
 if __name__ == "__main__":
     try:
         device_IP = "192.168.0.103"
-        api = XML_API(device_IP)
-        root = api.get("/devices")
+        api = API(device_IP)
+        root = api.get_xml("/devices")
         device_id = root.find(".//device/id").text
         active_read_mode = root.find(".//device/activeReadMode").text
         print("Device ID:", device_id)
         print("Active Read Mode:", active_read_mode)
 
-        configure_keonn(read_config(), api)
+        configure_keonn(api)
         print("Configuration done")
     except ConnectionError:
         raise ConnectionError

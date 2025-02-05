@@ -1,0 +1,9 @@
+{
+  "class": "READMODE_AUTONOMOUS",
+  "name": "AUTONOMOUS",
+  "cacheEventTTL": "1000",
+  "onTime": "600",
+  "offTime": "0",
+  "readDuration": "-1",
+  "generateReadEvents": "true"
+}
