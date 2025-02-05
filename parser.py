@@ -9,17 +9,19 @@ from aiomqtt.client import Client
 
 @dataclass
 class ReadEvent:
-    tag_id: str
+    epc: str
     RSSI: int
     location: str  # 60:e8:5b:0a:78:5f/1/0/0
 
 
-async def parsed_messages_stream(
+async def keonn_revents_stream(
     mesidz_stream: Client.MessagesIterator,
-) -> AsyncGenerator[ReadEvent, None, None]:
+) -> AsyncGenerator[list[ReadEvent], None]:
     async for message in mesidz_stream:
         message = message.payload.decode()
         mac, *tags = message.split("|")
+        revents: list[ReadEvent] = []
         for tag in tags:
-            tag_id, RSSI, location = re.split(":|@", tag)
-            yield ReadEvent(tag_id, int(RSSI), f"{mac}/{location}")
+            epc, rssi, location = re.split(":|@", tag)
+            revents.append(ReadEvent(epc, int(rssi), f"{mac}/{location}"))
+        yield revents

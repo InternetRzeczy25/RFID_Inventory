@@ -52,7 +52,7 @@ async def main():
     )
     try:
         await seed_devices()
-    except Exception:
+    except Exception as e:
         print(e)
 
     try:
