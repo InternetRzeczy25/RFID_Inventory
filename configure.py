@@ -99,7 +99,7 @@ def restart_device(device_api: API):
 
 def __def_to_location(def_: str, mac: str = "") -> tuple[str, str]:
     """transform KEONN definition string to our system location id and antenna name
-    def_ format is described on page 43 of the AdvanNet REST protocol reference
+    def_ format: https://wiki.keonn.com/software/advannet/development/rest-api-development#:~:text=%3C/request%3E-,Explanation,-%3A
     """
     spl = def_.split(",")
     return f"{mac}/{spl[1]}/{spl[2]}/{spl[3]}", spl[5]
