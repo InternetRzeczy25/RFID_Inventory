@@ -1,16 +1,17 @@
 services:
   mosquitto:
-    image: eclipse-mosquitto
-    container_name: mosquitto
+    build:
+      context: .
+      dockerfile: Dockerfile.mqtt
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
     ports:
       - 1883:1883
       - 9001:9001
     stdin_open: true
     tty: true
+
   mariadb:
     image: mariadb
     environment:
@@ -21,11 +22,21 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./mariadb:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
 
 #  cloudbeaver:
 #      image: dbeaver/cloudbeaver
 #      ports:
 #       - '8080:8978'
 #      volumes:
-#       - ./cloudbeaver:/opt/cloudbeaver/workspace
+#       - cloudbeaver_data:/opt/cloudbeaver/workspace
+
+volumes:
+  mosquitto_data:
+    driver: local
+  mosquitto_log:
+    driver: local
+  mariadb_data:
+    driver: local
+#  cloudbeaver_data:
+#    driver: local

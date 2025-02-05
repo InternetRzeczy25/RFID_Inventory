@@ -3,17 +3,14 @@ import logging
 import os
 import sys
 from contextlib import suppress
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from enum import IntEnum
 from parser import keonn_revents_stream
-from typing import Any
 
 import aiomqtt
 from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
 
-from models import Location, Tag, TagStatus
+from models import Event, Location, Tag, TagEvent, TagEventType, TagStatus
 
 load_dotenv()
 
@@ -38,24 +35,11 @@ logger.setLevel(logging.DEBUG)
 LOST_THRESHOLD = 5.0
 
 KEON_MQTT_CONF = {
-    "hostname": "127.0.0.1",
+    # "hostname": "127.0.0.1",
+    "hostname": "192.168.0.102",
     "port": 1883,
     "identifier": "server",
 }
-
-
-class TagEventType(IntEnum):
-    TAG_LOST = 0
-    TAG_LOC_CHANGE = 1
-    TAG_ADDED = 2
-    TAG_REAPPEARED = 3
-
-
-@dataclass
-class TagEvent:
-    type: TagEventType
-    tag: Tag
-    data: dict[Any, Any] | list[Any]
 
 
 equeue = asyncio.Queue()
@@ -82,6 +66,9 @@ async def event_sink():
     while True:
         evts: list[TagEvent] = await equeue.get()
         logger.info(f"TagEvents: {evts}")
+        await Event.bulk_create(
+            [Event(tag=e.tag, type=e.type, data=e.data) for e in evts]
+        )
 
 
 async def process_kmqtt():
@@ -97,11 +84,9 @@ async def process_kmqtt():
             )
             locobjs = await Location.filter(_id__in=[e.location for e in revents]).all()
 
-            tocreate = []
             tevents = []
             for e in revents:
-                dbtag = None
-                mloc = None
+                dbtag, mloc = None, None
                 with suppress(StopIteration):
                     dbtag = next(filter(lambda t: t.epc == e.epc, tags))
                 with suppress(StopIteration):
@@ -132,26 +117,23 @@ async def process_kmqtt():
                                 },
                             )
                         )
-                    if mloc:
-                        dbtag.last_loc_seen = mloc
+
+                    dbtag.last_loc_seen = mloc
                     dbtag.last_active_at = datetime.now(timezone.utc)
                     dbtag.status = TagStatus.ACTIVE
                     await dbtag.save()
                 else:
                     # Tag doesnt exist in DB
-                    ntag = Tag(
+                    ntag = await Tag.create(
                         last_active_at=datetime.now(timezone.utc),
                         status=TagStatus.ACTIVE,
                         epc=e.epc,
                         RSSI=e.RSSI,
                         last_loc_seen=mloc,
                     )
-                    tocreate.append(ntag)
                     tevents.append(
                         TagEvent(type=TagEventType.TAG_ADDED, tag=ntag, data={})
                     )
-
-            await Tag.bulk_create(tocreate)
             if tevents:
                 await equeue.put(tevents)
 
