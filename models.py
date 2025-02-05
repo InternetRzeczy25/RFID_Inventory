@@ -16,8 +16,16 @@ class Device(Model):
 
 class Location(Model):
     _id = fields.CharField(pk=True, max_length=255)  # MAC+... as key
-    name = fields.CharField(max_length=255)
-    device = fields.ForeignKeyField("models.Device", related_name="locations")
+    name = fields.CharField(max_length=255, default="-")
+    device = fields.ForeignKeyField(
+        "models.Device", related_name="locations"
+    )
+
+    def __repr__(self):
+        return self.name
+    
+    def __str__(self):
+        return self.name
 
 
 class TagStatus(IntEnum):
@@ -38,7 +46,7 @@ class Tag(Model):
     RSSI = fields.IntField()
 
     def __repr__(self):
-        return self.name
+        return f"name: {self.name}, EPC: {self.epc}"
 
 
 class Event(Model):
