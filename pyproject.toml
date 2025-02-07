@@ -10,4 +10,6 @@ dependencies = [
     "tortoise-orm[asyncmy]>=0.24.0",
     "requests>=2.32.3",
     "zeroconf>=0.143.0",
+    "fastapi-proxy-lib[standard]>=0.2.0",
+    "fastapi[standard]>=0.115.8",
 ]
