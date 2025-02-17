@@ -41,10 +41,9 @@ async def _(request: Request, device: str):
         new_resp = StreamingResponse(
             content=iter([nc]),
             status_code=proxy_response.status_code,
-            headers=proxy_response.headers,
+            headers={**proxy_response.headers, "Content-Length": str(len(nc))},
             media_type=proxy_response.media_type,
         )
-        new_resp.headers["Content-Length"] = str(len(nc))
         return new_resp
     return proxy_response
 
