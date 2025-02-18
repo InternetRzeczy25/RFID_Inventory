@@ -1,48 +1,89 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
-
-from models import Device, Location, Tag, TagStatus
+from tortoise.transactions import in_transaction
+from tortoise.exceptions import IntegrityError
+from models import Device, Location, Tag, TagStatus, Event, EventType
+import random
+from itertools import product
 
 load_dotenv()
 
 
-async def seed_tags():
-    await Tag.create(
-        epc="e28011700000020f7cbd7358",
-        RSSI=-20,
-        last_active_at=datetime.now(timezone.utc),
-        status=TagStatus.ACTIVE,
-        name="Oscyloskop",
-    )
-    await Tag.create(
-        epc="0000000deadbeef",
-        RSSI=-20,
-        last_active_at=datetime.now(timezone.utc),
-        status=TagStatus.ACTIVE,
-        name="Radziecki przyrząd",
-    )
+async def seed_tags(num_tag_groups: int = 5):
+    locs = await Location.all()
+    assert locs, "No locations in the database!"
+    for i, dev in product(
+        range(num_tag_groups),
+        (
+            "Oscyloskop",
+            "Radziecki przyrząd",
+            "Monitor",
+            "Zasilacz",
+            "Kąkuter",
+            "SDR",
+        ),
+    ):
+        status = random.choice((TagStatus.ACTIVE, TagStatus.LOST))
+        if status == TagStatus.LOST:
+            delta = timedelta(hours=random.randint(0, 20), days=random.randint(0, 10))
+        else:
+            delta = timedelta(seconds=0)
+        await Tag.create(
+            epc=hex(random.getrandbits(24 * 4))[2:],
+            RSSI=random.randint(-70, -20),
+            last_active_at=datetime.now(timezone.utc) - delta,
+            name=f"{dev} {i}",
+            status=status,
+            last_loc_seen=random.choice((*locs, None)),
+        )
 
 
-async def seed_devices():
-    await Device.create(
-        last_active_at=datetime.now(timezone.utc),
-        name="TMS",
-        mac="60:e8:5b:0a:78:5f",
-        ip="123.456.789.000",
-        online=True,
-        meta={},
-    )
+async def seed_devices(num_devs: int = 5):
+    for i in range(num_devs):
+        mac_hex = hex(random.getrandbits(12 * 4))[2:]
+        await Device.create(
+            last_active_at=datetime.now(timezone.utc),
+            name=f"Kełon {i}",
+            mac=":".join(mac_hex[i : i + 2] for i in range(0, len(mac_hex), 2)),
+            ip=f"192.168.1.{i}",
+            online=True,
+            meta={},
+        )
 
 
-async def seed_locations():
-    await Location.create(
-        _id="60:e8:5b:0a:78:5f/1/0/0", name="Lodex 314", device=(await Device.first())
-    )
+async def seed_locations(num_locs: int = 5):
+    devs = await Device.all()
+    assert devs, "No devices in the database!"
+    for i in range(num_locs):
+        dev = random.choice(devs)
+        loc = "/".join(map(str, random.choices([*range(4)], k=3)))
+        try:
+            await Location.create(id=f"{dev.mac}/{loc}", name=f"Półka {i}", device=dev)
+        except IntegrityError:
+            continue
+
+
+async def seed_events(num_events: int = 10):
+    for tag in (await Tag.first(), await Tag.last()):
+        assert tag, "No tags in the database!"
+        for i in range(num_events):
+            typ = random.choice(list(EventType))
+            data = {
+                "from": f"{i}/{i}/{i}",
+                "to": f"{i + 1}/{i + 1}/{i + 1}",
+            }
+            await Event.create(
+                type=typ,
+                data=data,
+                created_at=datetime.now(timezone.utc),
+                tag=tag,
+                notified=random.choice((True, False)),
+            )
 
 
 async def main():
@@ -50,15 +91,21 @@ async def main():
         db_url=os.environ.get("DB_CONNECTION_STRING"),
         modules={"models": ["models"]},
     )
-    try:
-        await seed_devices()
-    except Exception as e:
-        print(e)
-
-    try:
-        await seed_locations()
-    except Exception as e:
-        print(e)
+    await Tortoise._drop_databases()
+    await Tortoise.init(
+        db_url=os.environ.get("DB_CONNECTION_STRING"),
+        modules={"models": ["models"]},
+    )
+    await Tortoise.generate_schemas(safe=False)
+    # try:
+    async with in_transaction():
+        await seed_devices(5)
+        await seed_locations(40)
+        await seed_tags(50)
+        await seed_events(4)
+    print("Seed planted.")
+    # except Exception as e:
+    #     print(e)
 
 
 if __name__ == "__main__":
