@@ -10,7 +10,7 @@ import aiomqtt
 from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
 
-from models import Event, Location, Tag, TagEvent, TagEventType, TagStatus
+from models import Event, Location, Tag, TagEvent, EventType, TagStatus, MQTT_Message
 
 load_dotenv()
 
@@ -55,9 +55,7 @@ async def monitor_lost():
         # Update status in DB to LOST in single query
         await qlost.update(status=TagStatus.LOST)
         if lost:
-            tevents = [
-                TagEvent(type=TagEventType.TAG_LOST, tag=t, data={}) for t in lost
-            ]
+            tevents = [TagEvent(type=EventType.TAG_LOST, tag=t, data={}) for t in lost]
             await equeue.put(tevents)
         await asyncio.sleep(5.0)
 
@@ -82,7 +80,7 @@ async def process_kmqtt():
                 .prefetch_related("last_loc_seen")
                 .all()
             )
-            locobjs = await Location.filter(_id__in=[e.location for e in revents]).all()
+            locobjs = await Location.filter(id__in=[e.location for e in revents]).all()
 
             tevents = []
             for e in revents:
@@ -90,7 +88,7 @@ async def process_kmqtt():
                 with suppress(StopIteration):
                     dbtag = next(filter(lambda t: t.epc == e.epc, tags))
                 with suppress(StopIteration):
-                    mloc = next(filter(lambda lo: lo._id == e.location, locobjs))
+                    mloc = next(filter(lambda lo: lo.id == e.location, locobjs))
 
                 if not mloc:
                     logger.error(f"No object in db for location '{e.location}'!")
@@ -100,19 +98,19 @@ async def process_kmqtt():
                     if dbtag.status == TagStatus.LOST:
                         tevents.append(
                             TagEvent(
-                                type=TagEventType.TAG_REAPPEARED,
+                                type=EventType.TAG_REAPPEARED,
                                 tag=dbtag,
                                 data={},
                             )
                         )
 
-                    if dbtag.last_loc_seen and dbtag.last_loc_seen._id != e.location:
+                    if dbtag.last_loc_seen and dbtag.last_loc_seen.id != e.location:
                         tevents.append(
                             TagEvent(
-                                type=TagEventType.TAG_LOC_CHANGE,
+                                type=EventType.TAG_LOC_CHANGE,
                                 tag=dbtag,
                                 data={
-                                    "from": dbtag.last_loc_seen._id,
+                                    "from": dbtag.last_loc_seen.id,
                                     "to": e.location,
                                 },
                             )
@@ -132,7 +130,7 @@ async def process_kmqtt():
                         last_loc_seen=mloc,
                     )
                     tevents.append(
-                        TagEvent(type=TagEventType.TAG_ADDED, tag=ntag, data={})
+                        TagEvent(type=EventType.TAG_ADDED, tag=ntag, data={})
                     )
             if tevents:
                 await equeue.put(tevents)
