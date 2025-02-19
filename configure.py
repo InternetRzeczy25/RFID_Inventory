@@ -26,12 +26,14 @@ def assemble_mqtt_config(events_dir: pl.Path):
 CONFIG_DIR = pl.Path(__file__).parent / "config"
 
 
-def get_mqtt_service_config() -> dict[str, str]:
+def get_mqtt_service_config(broker_ip: str | None = None) -> dict[str, str]:
     with open(CONFIG_DIR / "service.json") as jason:
         default_config = json.load(jason)
 
-        my_IP = socket.gethostbyname(socket.gethostname())
-        default_config["broker"] = f"tcp://{my_IP}:1883"
+        my_ip = socket.gethostbyname(socket.gethostname())
+        broker_addr = broker_ip or my_ip
+
+        default_config["broker"] = f"tcp://{broker_addr}:1883"
 
         mqtt_conf = assemble_mqtt_config(CONFIG_DIR / "events")
         default_config["config"] = json.dumps(mqtt_conf)
