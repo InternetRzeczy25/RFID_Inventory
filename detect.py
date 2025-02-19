@@ -4,9 +4,18 @@ import re
 import sys
 import time
 from copy import deepcopy
+from typing import TypedDict
 
 from zeroconf import IPVersion
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
+
+
+class DeviceInfo(TypedDict):
+    name: str
+    ip: str
+
+
+type MAC = str
 
 
 class KeonnFinder:
@@ -18,6 +27,11 @@ class KeonnFinder:
         self.aiozc: AsyncZeroconf | None = None
 
     async def run_detection(self) -> None:
+        """Run the detection to update the devices.
+
+        Returns:
+            dict[MAC, DeviceInfo]: MAC address as key for the device info dict.
+        """
         self.aiozc = AsyncZeroconf(unicast=True, ip_version=IPVersion.V4Only)
         await self.aiozc.zeroconf.async_wait_for_start()
 
@@ -39,7 +53,7 @@ class KeonnFinder:
         tasks = [info.async_request(self.aiozc.zeroconf, 1000) for info in infos]
         await asyncio.gather(*tasks)
 
-        new_devices = {}
+        new_devices: dict[MAC, DeviceInfo] = {}
         for info in filter(None, infos):
             parsed = re.compile("(?P<name>.*) \\[(?P<mac>.*)\\].*").match(info.name)
             new_devices[parsed["mac"]] = {
@@ -48,6 +62,7 @@ class KeonnFinder:
             }
         self.__devices = new_devices
         await self.async_close()
+        return new_devices
 
     async def async_close(self) -> None:
         assert self.aiozc is not None
@@ -55,7 +70,12 @@ class KeonnFinder:
         await self.aiobrowser.async_cancel()
         await self.aiozc.async_close()
 
-    def get_devices(self) -> dict[str, dict[str, str]]:
+    def get_devices(self) -> dict[MAC, DeviceInfo]:
+        """Get the devices found. Returns a dict you can modify.
+
+        Returns:
+            dict[MAC, DeviceInfo]: MAC address as key for the device info dict.
+        """
         return deepcopy(self.__devices)
 
 
