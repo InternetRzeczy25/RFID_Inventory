@@ -3,6 +3,8 @@ from enum import IntEnum
 from typing import Any
 from tortoise import fields
 from tortoise.models import Model
+from tortoise.contrib.pydantic import pydantic_model_creator
+from tortoise import Tortoise
 from pydantic import BaseModel
 
 
@@ -86,3 +88,55 @@ class Event(Model):
     data = fields.JSONField()
     created_at = fields.DatetimeField(auto_now_add=True)
 
+
+Tortoise.init_models(["models"], "models")
+
+pydantic_Device = pydantic_model_creator(
+    Device, name="Device", exclude=("locations.tags",)
+)
+pydantic_batch_Device = pydantic_model_creator(
+    Device,
+    name="Device_batch",
+    exclude=("meta", "locations.tags"),
+)
+pydantic_In_Device = pydantic_model_creator(
+    Device,
+    exclude_readonly=True,
+    exclude=("last_active_at", "online"),
+    name="InDevice",
+)
+
+
+pydantic_Location = pydantic_model_creator(
+    Location, name="Location", exclude=("tags.events",)
+)
+pydantic_batch_Location = pydantic_model_creator(
+    Location,
+    name="Location_batch",
+    include=("device_id", "name", "id"),
+)
+pydantic_In_Location = pydantic_model_creator(
+    Location,
+    include=(
+        "id",
+        "name",
+        "device_id",
+    ),
+    name="InLocation",
+)
+
+pydantic_Tag = pydantic_model_creator(Tag, name="Tag")
+pydantic_batch_Tag = pydantic_model_creator(
+    Tag,
+    name="Tag_batch",
+    exclude=("events", "last_loc_seen.device"),
+)
+pydantic_In_Tag = pydantic_model_creator(
+    Tag,
+    exclude_readonly=True,
+    exclude=("last_active_at", "RSSI", "status"),
+    name="InTag",
+)
+
+pydantic_Event = pydantic_model_creator(Event, name="Event")
+pydantic_In_Event = pydantic_model_creator(Event, exclude_readonly=True, name="InEvent")
