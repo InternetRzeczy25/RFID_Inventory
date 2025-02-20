@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 from tortoise.contrib.pydantic import pydantic_model_creator
 
-from server.api._base import add_get_all, add_get_one, add_patch, add_post
+from server.api._base import add_get_all, add_get_one, add_patch
 from server.models import Location
 
 router = APIRouter(prefix="/locations", tags=["Locations"])

@@ -10,7 +10,7 @@ from fastapi import FastAPI
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    tasks = []
+    tasks: list[asyncio.Task] = []
     tasks.append(asyncio.create_task(process_kmqtt()))
     # tasks.append(asyncio.create_task(monitor_lost()))
 
