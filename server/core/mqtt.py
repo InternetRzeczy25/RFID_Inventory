@@ -4,12 +4,13 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
-from server.utils.parser import keonn_revents_stream
+from server.core.parser import keonn_revents_stream
 
 import aiomqtt
 from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
 
+from server.core import KEON_MQTT_CONF, LOST_THRESHOLD
 from server.models import (
     Event,
     Location,
@@ -37,16 +38,7 @@ logger_db_client = logging.getLogger("tortoise.db_client")
 logger_db_client.addHandler(sh)
 
 logger = logging.getLogger("iot")
-logging.basicConfig()
 logger.setLevel(logging.DEBUG)
-
-LOST_THRESHOLD = 5.0
-
-KEON_MQTT_CONF = {
-    "hostname": "127.0.0.1",
-    "port": 1883,
-    "identifier": "server",
-}
 
 
 equeue = asyncio.Queue()
@@ -64,7 +56,7 @@ async def monitor_lost():
         if lost:
             tevents = [TagEvent(type=EventType.TAG_LOST, tag=t, data={}) for t in lost]
             await equeue.put(tevents)
-        await asyncio.sleep(5.0)
+        await asyncio.sleep(LOST_THRESHOLD)
 
 
 async def event_sink():
