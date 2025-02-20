@@ -43,8 +43,7 @@ logger.setLevel(logging.DEBUG)
 LOST_THRESHOLD = 5.0
 
 KEON_MQTT_CONF = {
-    # "hostname": "127.0.0.1",
-    "hostname": "192.168.0.102",
+    "hostname": "127.0.0.1",
     "port": 1883,
     "identifier": "server",
 }

@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from main import monitor_lost, process_kmqtt
+from server.core.mqtt import monitor_lost, process_kmqtt
 from server import create_app
 from fastapi import FastAPI
 
