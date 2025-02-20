@@ -5,8 +5,8 @@ import socket
 import xml.etree.ElementTree as ET
 from typing import Any
 
-import requests
-from requests.auth import HTTPDigestAuth
+import httpx
+from httpx import DigestAuth
 
 from server.models import device_metadata
 
@@ -44,42 +44,42 @@ def get_mqtt_service_config(broker_ip: str | None = None) -> dict[str, str]:
 
 class API:
     __IP: str
-    auth = HTTPDigestAuth("admin", "admin")
+    auth = DigestAuth("admin", "admin")
 
     def __init__(self, IP: str):
         self.__IP = IP
 
-    def get(self, path: str, **kwargs):
-        res = requests.get(
-            url=f"http://{self.__IP}:3161{path}",
-            auth=kwargs.pop("auth", self.auth),
-            **kwargs,
-        )
-        if res.status_code != 200:
-            raise ConnectionError
-        return res
+    async def get(self, path: str, **kwargs):
+        async with httpx.AsyncClient() as client:
+            res = await client.get(
+                url=f"http://{self.__IP}:3161{path}",
+                auth=kwargs.pop("auth", self.auth),
+                **kwargs,
+            )
+            res.raise_for_status()
+            return res
 
-    def get_xml(self, path: str, **kwargs):
-        res = self.get(path, **kwargs)
+    async def get_xml(self, path: str, **kwargs):
+        res = await self.get(path, **kwargs)
         return ET.fromstring(res.text)
 
-    def put(self, path: str, data: Any, **kwargs):
-        res = requests.put(
-            url=f"http://{self.__IP}:3161{path}",
-            data=data,
-            auth=kwargs.pop("auth", self.auth),
-            **kwargs,
-        )
-        if res.status_code != 200:
-            raise ConnectionError
-        print(res.text)
-        return res
+    async def put(self, path: str, data: Any, **kwargs):
+        async with httpx.AsyncClient() as client:
+            res = await client.put(
+                url=f"http://{self.__IP}:3161{path}",
+                data=data,
+                auth=kwargs.pop("auth", self.auth),
+                **kwargs,
+            )
+            res.raise_for_status()
+            print(res.text)
+            return res
 
-    def put_xml(self, path: str, data: ET.Element, **kwargs):
+    async def put_xml(self, path: str, data: ET.Element, **kwargs):
         kwargs["headers"] = kwargs.get("headers", {}).update(
             {"Content-Type": "application/xml"}
         )
-        res = self.put(path, ET.tostring(data), **kwargs)
+        res = await self.put(path, ET.tostring(data), **kwargs)
         return ET.fromstring(res.text)
 
 
@@ -97,8 +97,8 @@ def xml_request_from_dict(data: dict[str, str]) -> ET.Element:
     return req
 
 
-def restart_device(device_api: API):
-    device_api.get("/system/runtime/reboot")
+async def restart_device(device_api: API):
+    await device_api.get("/system/runtime/reboot")
 
 
 def __def_to_location(def_: str, mac: str = "") -> tuple[str, str]:
@@ -109,11 +109,11 @@ def __def_to_location(def_: str, mac: str = "") -> tuple[str, str]:
     return f"{mac}/{spl[1]}/{spl[2]}/{spl[3]}", spl[5]
 
 
-def get_locations(device_api: API):
-    root = device_api.get_xml("/devices")
+async def get_locations(device_api: API):
+    root = await device_api.get_xml("/devices")
     device_id = root.find(".//device/id").text
     mac = root.find(".//device/mac").text
-    loc_root = device_api.get_xml(f"/devices/{device_id}/antennas")
+    loc_root = await device_api.get_xml(f"/devices/{device_id}/antennas")
 
     return (
         __def_to_location(d.text, mac)
@@ -121,25 +121,27 @@ def get_locations(device_api: API):
     )
 
 
-def configure_keonn(device_api: API):
-    root = device_api.get_xml("/devices")
+async def configure_keonn(device_api: API):
+    root = await device_api.get_xml("/devices")
     device_id = root.find(".//device/id").text
     active_read_mode = root.find(".//device/activeReadMode").text
     if active_read_mode != "AUTONOMOUS":
-        device_api.put(f"/devices/{device_id}/activeDeviceMode", data="Autonomous")
-        device_api.put(f"/devices/{device_id}/activeReadMode", data="AUTONOMOUS")
+        await device_api.put(
+            f"/devices/{device_id}/activeDeviceMode", data="Autonomous"
+        )
+        await device_api.put(f"/devices/{device_id}/activeReadMode", data="AUTONOMOUS")
         mode_conf = cfg_to_dict(CONFIG_DIR / "readmode.json")
         req = xml_request_from_dict(mode_conf)
-        device_api.put_xml(f"/devices/{device_id}/readMode", req)
+        await device_api.put_xml(f"/devices/{device_id}/readMode", req)
 
     mqtt_conf = get_mqtt_service_config()
     mqtt_conf["clientId"] = device_id
     req = xml_request_from_dict(mqtt_conf)
-    device_api.put_xml("/system/services/byId/MQTTService", req)
+    await device_api.put_xml("/system/services/byId/MQTTService", req)
 
 
-def get_metadata(device_api: API) -> device_metadata:
-    root = device_api.get_xml("/devices")
+async def get_metadata(device_api: API) -> device_metadata:
+    root = await device_api.get_xml("/devices")
     return device_metadata(
         id=root.find(".//device/id").text,
         family=root.find(".//device/id").text,
@@ -153,19 +155,23 @@ def get_metadata(device_api: API) -> device_metadata:
 
 
 if __name__ == "__main__":
-    try:
-        device_IP = "192.168.0.103"
-        device_IP = "192.168.1.21"
-        api = API(device_IP)
-        root = api.get_xml("/devices")
-        device_id = root.find(".//device/id").text
-        active_read_mode = root.find(".//device/activeReadMode").text
-        print("Device ID:", device_id)
-        print("Active Read Mode:", active_read_mode)
+    import asyncio
 
-        print("Locations:", *get_locations(api))
+    async def main():
+        try:
+            device_IP = "192.168.0.103"
+            api = API(device_IP)
+            root = await api.get_xml("/devices")
+            device_id = root.find(".//device/id").text
+            active_read_mode = root.find(".//device/activeReadMode").text
+            print("Device ID:", device_id)
+            print("Active Read Mode:", active_read_mode)
 
-        # configure_keonn(api)
-        # print("Configuration done")
-    except ConnectionError:
-        raise ConnectionError
+            print("Locations:", *(await get_locations(api)))
+
+            # await configure_keonn(api)
+            # print("Configuration done")
+        except httpx.HTTPStatusError:
+            raise ConnectionError
+
+    asyncio.run(main())

@@ -1,6 +1,6 @@
-from server.api.device import pydantic_batch_Device, Device
-from server.utils.detect import KeonnFinder
+from server.api.device import Device, pydantic_batch_Device
 from server.utils.configure import API, get_metadata
+from server.utils.detect import KeonnFinder
 
 kf = KeonnFinder()
 
@@ -22,16 +22,18 @@ async def discover_devices() -> list[pydantic_batch_Device]:  # type: ignore
     for mac in new_macs:
         ip = found[mac]["ip"]
         device = API(ip)
-        meta = get_metadata(device)
+        meta = await get_metadata(device)
         to_create.append(
             Device(
                 mac=mac,
                 ip=ip,
-                metadata=meta.model_dump(),
+                meta=meta.model_dump(),
                 online=True,
                 name=meta.id,
             )
         )
 
     await Device.bulk_create(to_create)
-    return pydantic_batch_Device.from_queryset(Device.filter(mac__in=new_macs).all())
+    return await pydantic_batch_Device.from_queryset(
+        Device.filter(mac__in=new_macs).all()
+    )
