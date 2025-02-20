@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
 from server.api import device, location, tag
+from server.api.discover import discover_devices
 from server.api.v1 import add_devices, add_locations, add_tags
-from .discover import discover_devices
 
 api_v2 = APIRouter(tags=["API_V2"])
 
