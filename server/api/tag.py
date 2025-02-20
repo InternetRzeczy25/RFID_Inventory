@@ -12,13 +12,14 @@ pydantic_Tag = pydantic_model_creator(Tag, name="Tag")
 pydantic_batch_Tag = pydantic_model_creator(
     Tag,
     name="Tag_batch",
-    exclude=("events", "last_loc_seen.device"),
+    exclude=("events", "last_loc_seen.device", "created_at", "modified_at"),
 )
 
 
 class pydantic_Update_Tag(BaseModel):
     name: str | None = None
     description: str | None = None
+    model_config = ConfigDict(title="UpdateTag")
 
 
 def batch_tags_query():
@@ -27,4 +28,4 @@ def batch_tags_query():
 
 add_get_all(router, pydantic_batch_Tag, batch_tags_query)
 add_get_one(router, pydantic_Tag, int, Tag.get)
-add_patch(router, pydantic_Tag, pydantic_Update_Tag, Tag)
+add_patch(router, pydantic_batch_Tag, pydantic_Update_Tag, Tag)

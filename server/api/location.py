@@ -17,13 +17,6 @@ pydantic_batch_Location = pydantic_model_creator(
 )
 
 
-pydantic_Create_Location = pydantic_model_creator(
-    Location,
-    include=("loc", "name", "device_id"),
-    name="CreateLocation",
-)
-
-
 class pydantic_Update_Location(BaseModel):
     name: str
     model_config = ConfigDict(title="UpdateLocation")
@@ -31,5 +24,4 @@ class pydantic_Update_Location(BaseModel):
 
 add_get_all(router, pydantic_batch_Location, Location.all)
 add_get_one(router, pydantic_Location, int, Location.get)
-add_post(router, pydantic_Location, pydantic_Create_Location, Location)
-add_patch(router, pydantic_Location, pydantic_Update_Location, Location)
+add_patch(router, pydantic_batch_Location, pydantic_Update_Location, Location)

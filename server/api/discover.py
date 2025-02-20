@@ -29,6 +29,7 @@ async def discover_devices() -> list[pydantic_batch_Device]:  # type: ignore
                 ip=ip,
                 metadata=meta.model_dump(),
                 online=True,
+                name=meta.id,
             )
         )
 

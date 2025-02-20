@@ -21,6 +21,11 @@ class EventType(IntEnum):
     TAG_REAPPEARED = 3
 
 
+class TimestampMixin:
+    created_at = fields.DatetimeField(auto_now_add=True)
+    modified_at = fields.DatetimeField(auto_now=True)
+
+
 class MQTT_Message(BaseModel):
     action: EventType
     tag_id: int
@@ -38,18 +43,18 @@ class device_metadata(BaseModel):
     rf_module: str
 
 
-class Device(Model):
+class Device(TimestampMixin, Model):
     id = fields.IntField(pk=True)
     last_active_at = fields.DatetimeField(auto_now_add=True)
-    name = fields.CharField(max_length=255, default="-")
+    name = fields.CharField(max_length=255)
     mac = fields.CharField(max_length=255, index=True, unique=True)
     ip = fields.CharField(max_length=255)
-    online = fields.BooleanField(index=True, default=False)
+    online = fields.BooleanField(index=True)
     meta = fields.JSONField(field_type=device_metadata)
     locations: fields.ReverseRelation["Location"]
 
 
-class Location(Model):
+class Location(TimestampMixin, Model):
     id = fields.IntField(pk=True)
     loc = fields.CharField(
         max_length=255,
@@ -58,7 +63,7 @@ class Location(Model):
             RegexValidator(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}/[0-4]/[0-4]/[0-4]$", re.I)
         ],
     )  # MAC+... as key
-    name = fields.CharField(max_length=255, default="-")
+    name = fields.CharField(max_length=255)
     device: fields.ForeignKeyRelation[Device] = fields.ForeignKeyField(
         "models.Device", related_name="locations"
     )
@@ -71,7 +76,7 @@ class Location(Model):
         return self.name
 
 
-class Tag(Model):
+class Tag(TimestampMixin, Model):
     id = fields.IntField(pk=True)
     last_active_at = fields.DatetimeField()
     epc = fields.CharField(max_length=255, index=True, unique=True)
@@ -80,8 +85,8 @@ class Tag(Model):
         "models.Location", related_name="tags", null=True, to_field="loc"
     )
     events: fields.ReverseRelation["Event"]
-    name = fields.CharField(max_length=255, default="-")
-    description = fields.TextField(default="-")
+    name = fields.CharField(max_length=255)
+    description = fields.TextField()
     RSSI = fields.IntField()
 
     def __repr__(self):
@@ -101,6 +106,6 @@ class Event(Model):
         "models.Tag", related_name="events"
     )
     type: EventType = fields.IntEnumField(EventType, index=True)
-    notified = fields.BooleanField(default=False)
+    notified = fields.BooleanField()
     data = fields.JSONField()
     created_at = fields.DatetimeField(auto_now_add=True)

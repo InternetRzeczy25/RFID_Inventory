@@ -73,7 +73,7 @@ async def event_sink():
         evts: list[TagEvent] = await equeue.get()
         logger.info(f"TagEvents: {evts}")
         await Event.bulk_create(
-            [Event(tag=e.tag, type=e.type, data=e.data) for e in evts]
+            [Event(tag=e.tag, type=e.type, data=e.data, notified=False) for e in evts]
         )
 
 
@@ -136,6 +136,8 @@ async def process_kmqtt():
                         epc=e.epc,
                         RSSI=e.RSSI,
                         last_loc_seen=mloc,
+                        name=e.epc,
+                        description="",
                     )
                     tevents.append(
                         TagEvent(type=EventType.TAG_ADDED, tag=ntag, data={})

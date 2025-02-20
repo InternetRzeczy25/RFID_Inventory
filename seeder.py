@@ -38,6 +38,7 @@ async def seed_tags(num_tag_groups: int = 5):
             RSSI=random.randint(-70, -20),
             last_active_at=datetime.now(timezone.utc) - delta,
             name=f"{dev} {i}",
+            description="",
             status=status,
             last_loc_seen=random.choice((*locs, None)),
         )
