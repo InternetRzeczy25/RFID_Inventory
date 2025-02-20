@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import aiomqtt
 
-from server.core import KEON_MQTT_CONF, LOST_THRESHOLD
+from server.core import KEONN_BROKER_CONF, LOST_THRESHOLD
 from server.core.parser import keonn_revents_stream
 from server.models import (
     Event,
@@ -48,8 +48,10 @@ async def event_sink():
 
 
 async def process_kmqtt():
-    async with aiomqtt.Client(**KEON_MQTT_CONF) as kmqtt:
-        logger.info(f"Keonn MQTT connected to broker at {KEON_MQTT_CONF['hostname']}")
+    async with aiomqtt.Client(**KEONN_BROKER_CONF, identifier="processor") as kmqtt:
+        logger.info(
+            f"Keonn MQTT connected to broker at {KEONN_BROKER_CONF['hostname']}"
+        )
         await kmqtt.subscribe("RFID/devices")
 
         async for revents in keonn_revents_stream(kmqtt.messages):

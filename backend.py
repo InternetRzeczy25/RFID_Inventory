@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from server.core.mqtt import monitor_lost, process_kmqtt
+from server.mock.mqtt_spam import generate_mqtt_events
 from server import create_app
 from fastapi import FastAPI
 
@@ -12,7 +12,7 @@ from fastapi import FastAPI
 async def lifespan(app: FastAPI):
     tasks: list[asyncio.Task] = []
     tasks.append(asyncio.create_task(process_kmqtt()))
-    # tasks.append(asyncio.create_task(monitor_lost()))
+    tasks.append(asyncio.create_task(generate_mqtt_events()))
 
     yield
     for task in tasks:
