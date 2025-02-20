@@ -39,7 +39,11 @@ def create_app(**app_kwargs) -> FastAPI:
     @app.get("/mqtt/schema", response_model=MQTT_Message, tags=["Utilities"])
     async def get_mqtt():
         return MQTT_Message(
-            action=EventType.TAG_LOST, item_id=1, loc_id=1, past_loc_id=1, event_id=1
+            action=EventType.TAG_LOST,
+            loc_id=1,
+            past_loc_id=1,
+            event_id=1,
+            tag_id=1,
         )
 
     register_tortoise(
