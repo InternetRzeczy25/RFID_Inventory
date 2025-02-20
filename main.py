@@ -4,13 +4,21 @@ import os
 import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
-from parser import keonn_revents_stream
+from server.utils.parser import keonn_revents_stream
 
 import aiomqtt
 from dotenv import load_dotenv
 from tortoise import Tortoise, run_async
 
-from models import Event, Location, Tag, TagEvent, EventType, TagStatus, MQTT_Message
+from server.models import (
+    Event,
+    Location,
+    Tag,
+    TagEvent,
+    EventType,
+    TagStatus,
+    MQTT_Message,
+)
 
 load_dotenv()
 

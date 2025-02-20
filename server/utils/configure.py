@@ -8,6 +8,8 @@ from typing import Any
 import requests
 from requests.auth import HTTPDigestAuth
 
+from server.models import device_metadata
+
 
 def assemble_mqtt_config(events_dir: pl.Path):
     config = []
@@ -23,7 +25,7 @@ def assemble_mqtt_config(events_dir: pl.Path):
     return config
 
 
-CONFIG_DIR = pl.Path(__file__).parent / "config"
+CONFIG_DIR = pl.Path(__file__).parent / "device_conf"
 
 
 def get_mqtt_service_config(broker_ip: str | None = None) -> dict[str, str]:
@@ -136,9 +138,24 @@ def configure_keonn(device_api: API):
     device_api.put_xml("/system/services/byId/MQTTService", req)
 
 
+def get_metadata(device_api: API) -> device_metadata:
+    root = device_api.get_xml("/devices")
+    return device_metadata(
+        id=root.find(".//device/id").text,
+        family=root.find(".//device/id").text,
+        serial=root.find(".//device/serial").text,
+        code=root.find(".//device/code").text,
+        fw_version=root.find(".//device/firmware/version").text
+        + "."
+        + root.find(".//device/firmware/revision").text,
+        rf_module=root.find(".//device/rf-module").text,
+    )
+
+
 if __name__ == "__main__":
     try:
         device_IP = "192.168.0.103"
+        device_IP = "192.168.1.21"
         api = API(device_IP)
         root = api.get_xml("/devices")
         device_id = root.find(".//device/id").text

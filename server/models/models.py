@@ -1,11 +1,12 @@
+import re
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
+
+from pydantic import BaseModel
 from tortoise import fields
 from tortoise.models import Model
-from tortoise.contrib.pydantic import pydantic_model_creator
-from tortoise import Tortoise
-from pydantic import BaseModel
+from tortoise.validators import RegexValidator
 
 
 class TagStatus(IntEnum):
@@ -28,19 +29,35 @@ class MQTT_Message(BaseModel):
     event_id: int
 
 
+class device_metadata(BaseModel):
+    id: str
+    family: str
+    serial: str
+    code: str
+    fw_version: str
+    rf_module: str
+
+
 class Device(Model):
     id = fields.IntField(pk=True)
-    last_active_at = fields.DatetimeField(null=True, default=None)
+    last_active_at = fields.DatetimeField(auto_now_add=True)
     name = fields.CharField(max_length=255, default="-")
     mac = fields.CharField(max_length=255, index=True, unique=True)
     ip = fields.CharField(max_length=255)
     online = fields.BooleanField(index=True, default=False)
-    meta = fields.JSONField()
+    meta = fields.JSONField(field_type=device_metadata)
     locations: fields.ReverseRelation["Location"]
 
 
 class Location(Model):
-    id = fields.CharField(pk=True, max_length=255)  # MAC+... as key
+    id = fields.IntField(pk=True)
+    loc = fields.CharField(
+        max_length=255,
+        unique=True,
+        validators=[
+            RegexValidator(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}/[0-4]/[0-4]/[0-4]$", re.I)
+        ],
+    )  # MAC+... as key
     name = fields.CharField(max_length=255, default="-")
     device: fields.ForeignKeyRelation[Device] = fields.ForeignKeyField(
         "models.Device", related_name="locations"
@@ -60,7 +77,7 @@ class Tag(Model):
     epc = fields.CharField(max_length=255, index=True, unique=True)
     status: TagStatus = fields.IntEnumField(TagStatus, index=True)
     last_loc_seen: fields.ForeignKeyNullableRelation[Location] = fields.ForeignKeyField(
-        "models.Location", related_name="tags", null=True
+        "models.Location", related_name="tags", null=True, to_field="loc"
     )
     events: fields.ReverseRelation["Event"]
     name = fields.CharField(max_length=255, default="-")
@@ -87,56 +104,3 @@ class Event(Model):
     notified = fields.BooleanField(default=False)
     data = fields.JSONField()
     created_at = fields.DatetimeField(auto_now_add=True)
-
-
-Tortoise.init_models(["models"], "models")
-
-pydantic_Device = pydantic_model_creator(
-    Device, name="Device", exclude=("locations.tags",)
-)
-pydantic_batch_Device = pydantic_model_creator(
-    Device,
-    name="Device_batch",
-    exclude=("meta", "locations.tags"),
-)
-pydantic_In_Device = pydantic_model_creator(
-    Device,
-    exclude_readonly=True,
-    exclude=("last_active_at", "online"),
-    name="InDevice",
-)
-
-
-pydantic_Location = pydantic_model_creator(
-    Location, name="Location", exclude=("tags.events",)
-)
-pydantic_batch_Location = pydantic_model_creator(
-    Location,
-    name="Location_batch",
-    include=("device_id", "name", "id"),
-)
-pydantic_In_Location = pydantic_model_creator(
-    Location,
-    include=(
-        "id",
-        "name",
-        "device_id",
-    ),
-    name="InLocation",
-)
-
-pydantic_Tag = pydantic_model_creator(Tag, name="Tag")
-pydantic_batch_Tag = pydantic_model_creator(
-    Tag,
-    name="Tag_batch",
-    exclude=("events", "last_loc_seen.device"),
-)
-pydantic_In_Tag = pydantic_model_creator(
-    Tag,
-    exclude_readonly=True,
-    exclude=("last_active_at", "RSSI", "status"),
-    name="InTag",
-)
-
-pydantic_Event = pydantic_model_creator(Event, name="Event")
-pydantic_In_Event = pydantic_model_creator(Event, exclude_readonly=True, name="InEvent")

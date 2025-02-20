@@ -36,7 +36,7 @@ async def _(request: Request, device: str):
         old_content = proxy_response.body_iterator
 
         nc = "".join([x.decode("utf-8") async for x in old_content])
-        nc = nc.replace("${Device.IP}:11987", f"127.0.0.1/{device}/")
+        nc = nc.replace("${Device.IP}:11987", f"{device}/")
 
         new_resp = StreamingResponse(
             content=iter([nc]),
