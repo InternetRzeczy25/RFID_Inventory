@@ -1,41 +1,20 @@
 import asyncio
 import logging
-import os
-import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
-from server.core.parser import keonn_revents_stream
 
 import aiomqtt
-from dotenv import load_dotenv
-from tortoise import Tortoise, run_async
 
 from server.core import KEON_MQTT_CONF, LOST_THRESHOLD
+from server.core.parser import keonn_revents_stream
 from server.models import (
     Event,
+    EventType,
     Location,
     Tag,
     TagEvent,
-    EventType,
     TagStatus,
-    MQTT_Message,
 )
-
-load_dotenv()
-
-
-fmt = logging.Formatter(
-    fmt="%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-sh = logging.StreamHandler(sys.stdout)
-sh.setLevel(logging.DEBUG)
-sh.setFormatter(fmt)
-
-# will print debug sql
-logger_db_client = logging.getLogger("tortoise.db_client")
-# logger_db_client.setLevel(logging.DEBUG)
-logger_db_client.addHandler(sh)
 
 logger = logging.getLogger("iot")
 logger.setLevel(logging.DEBUG)
@@ -135,22 +114,3 @@ async def process_kmqtt():
                     )
             if tevents:
                 await equeue.put(tevents)
-
-
-async def main():
-    await Tortoise.init(
-        db_url=os.environ.get("DB_CONNECTION_STRING"),
-        modules={"models": ["models"]},
-    )
-    await Tortoise.generate_schemas(safe=True)
-    await asyncio.gather(
-        monitor_lost(),
-        process_kmqtt(),
-        event_sink(),
-    )
-
-
-if __name__ == "__main__":
-    if sys.platform.lower() == "win32" or os.name.lower() == "nt":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    run_async(main())
