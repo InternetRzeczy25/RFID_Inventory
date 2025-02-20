@@ -14,6 +14,10 @@ from itertools import product
 load_dotenv()
 
 
+def random_hex_string(length: int) -> str:
+    return f"{hex(random.getrandbits(4 * length))[2:]:0>{length}}"
+
+
 async def seed_tags(num_tag_groups: int = 5):
     locs = await Location.all()
     assert locs, "No locations in the database!"
@@ -34,7 +38,7 @@ async def seed_tags(num_tag_groups: int = 5):
         else:
             delta = timedelta(seconds=0)
         await Tag.create(
-            epc=hex(random.getrandbits(24 * 4))[2:],
+            epc=random_hex_string(24),
             RSSI=random.randint(-70, -20),
             last_active_at=datetime.now(timezone.utc) - delta,
             name=f"{dev} {i}",
@@ -46,7 +50,7 @@ async def seed_tags(num_tag_groups: int = 5):
 
 async def seed_devices(num_devs: int = 5):
     for i in range(num_devs):
-        mac_hex = hex(random.getrandbits(12 * 4))[2:]
+        mac_hex = random_hex_string(12)
         serial = random.randint(999, 9999)
         await Device.create(
             last_active_at=datetime.now(timezone.utc),
