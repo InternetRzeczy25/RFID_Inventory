@@ -4,6 +4,7 @@ import pathlib as pl
 import re
 import socket
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -152,6 +153,24 @@ async def get_metadata(device_api: API) -> device_metadata:
         + "."
         + root.find(".//device/firmware/revision").text,
         rf_module=root.find(".//device/rf-module").text,
+    )
+
+
+@dataclass
+class device_info:
+    device_id: str
+    active_read_mode: str
+    status: str
+    mac: str
+
+
+async def get_info(device_api: API) -> device_info:
+    root = await device_api.get_xml("/devices")
+    return device_info(
+        root.find(".//device/id").text,
+        root.find(".//device/activeReadMode").text,
+        root.find(".//device/status").text,
+        root.find(".//device/mac").text,
     )
 
 
