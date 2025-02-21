@@ -1,3 +1,4 @@
+import ipaddress
 import json
 import pathlib as pl
 import re
@@ -43,11 +44,11 @@ def get_mqtt_service_config(broker_ip: str | None = None) -> dict[str, str]:
 
 
 class API:
-    __IP: str
+    __IP: ipaddress.IPv4Address | ipaddress.IPv6Address
     auth = DigestAuth("admin", "admin")
 
     def __init__(self, IP: str):
-        self.__IP = IP
+        self.__IP = ipaddress.ip_address(IP)
 
     async def get(self, path: str, **kwargs):
         async with httpx.AsyncClient() as client:
