@@ -8,22 +8,7 @@ from tortoise.models import Model
 from tortoise.queryset import QuerySet, QuerySetSingle
 
 
-def add_get_one(
-    router: APIRouter, out_type, in_type, query: Callable[[Any], QuerySetSingle]
-):
-    @router.get("/{item_id}", response_model=out_type)
-    async def get_one(item_id: in_type) -> out_type:  # type: ignore
-        return await out_type.from_queryset_single(query(id=item_id))
-
-
-def add_get_all(router: APIRouter, out_type, query: Callable[[], QuerySet]):
-    @router.get("", response_model=list[out_type])
-    async def get_all() -> list[out_type]:  # type: ignore
-        return await out_type.from_queryset(query())
-
-
-def forward_exception(e: Exception):
-    print(e)
+def forward_exception(e: Exception, input: Any = None):
     raise RequestValidationError(
         errors=(
             ValidationError.from_exception_data(
@@ -31,12 +16,30 @@ def forward_exception(e: Exception):
                 [
                     InitErrorDetails(
                         type=PydanticCustomError(e.__class__.__name__, str(e)),
-                        loc=("się", "zjebało"),
+                        loc=(0, ""),
+                        input=input,
                     )
                 ],
             )
         ).errors()
     )
+
+
+def add_get_one(
+    router: APIRouter, out_type, in_type, query: Callable[[Any], QuerySetSingle]
+):
+    @router.get("/{item_id}", response_model=out_type)
+    async def get_one(item_id: in_type) -> out_type:  # type: ignore
+        try:
+            return await out_type.from_queryset_single(query(id=item_id))
+        except Exception as e:
+            forward_exception(e, item_id)
+
+
+def add_get_all(router: APIRouter, out_type, query: Callable[[], QuerySet]):
+    @router.get("", response_model=list[out_type])
+    async def get_all() -> list[out_type]:  # type: ignore
+        return await out_type.from_queryset(query())
 
 
 def add_post(router: APIRouter, out_type, in_type, model: Type[Model]):
