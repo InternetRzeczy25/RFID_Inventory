@@ -16,33 +16,57 @@ from server.models import (
     TagStatus,
 )
 
-logger = get_configured_logger("server.mqtt", "WARN")
+logger = get_configured_logger("server.mqtt", "DEBUG")
 
 equeue = asyncio.Queue()
 
 
 async def monitor_lost():
+    asyncio.sleep(5)
     while True:
-        dtime = datetime.now(timezone.utc) - timedelta(seconds=LOST_THRESHOLD)
-        qlost = (
-            Tag.filter(last_active_at__lte=dtime).exclude(status=TagStatus.LOST).all()
-        )
-        lost = await qlost
-        # Update status in DB to LOST in single query
-        await qlost.update(status=TagStatus.LOST)
-        if lost:
-            tevents = [TagEvent(type=EventType.TAG_LOST, tag=t, data={}) for t in lost]
-            await equeue.put(tevents)
-        await asyncio.sleep(LOST_THRESHOLD)
+        try:
+            dtime = datetime.now(timezone.utc) - timedelta(seconds=LOST_THRESHOLD)
+            qlost = (
+                Tag.filter(last_active_at__lte=dtime)
+                .exclude(status=TagStatus.LOST)
+                .all()
+            )
+            lost = await qlost
+            # Update status in DB to LOST in single query
+            logger.debug(
+                f"Marked {await qlost.update(status=TagStatus.LOST)} tags as LOST"
+            )
+            if lost:
+                tevents = [
+                    TagEvent(
+                        type=EventType.TAG_LOST,
+                        tag=t,
+                        data={
+                            "from": t.last_loc_seen and t.last_loc_seen.loc,
+                            "RSSI": t.RSSI,
+                        },
+                    )
+                    for t in lost
+                ]
+                await equeue.put(tevents)
+            await asyncio.sleep(LOST_THRESHOLD)
+        except Exception as e:
+            logger.exception(str(e))
 
 
 async def event_sink():
     while True:
-        evts: list[TagEvent] = await equeue.get()
-        logger.info(f"TagEvents: {evts}")
-        await Event.bulk_create(
-            [Event(tag=e.tag, type=e.type, data=e.data, notified=False) for e in evts]
-        )
+        try:
+            evts: list[TagEvent] = await equeue.get()
+            await Event.bulk_create(
+                [
+                    Event(tag=e.tag, type=e.type, data=e.data, notified=False)
+                    for e in evts
+                ]
+            )
+            logger.info(f"Added {len(evts)} events")
+        except Exception as e:
+            logger.exception(str(e))
 
 
 async def process_kmqtt():
@@ -81,9 +105,17 @@ async def process_kmqtt():
                                 TagEvent(
                                     type=EventType.TAG_REAPPEARED,
                                     tag=dbtag,
-                                    data={},
+                                    data={
+                                        "from": dbtag.last_loc_seen
+                                        and dbtag.last_loc_seen.loc,
+                                        "gone_for": (
+                                            datetime.now(timezone.utc)
+                                            - dbtag.last_active_at
+                                        ).total_seconds(),
+                                    },
                                 )
                             )
+                            logger.debug(f"Tag {dbtag.epc} reappeared")
 
                         if (
                             dbtag.last_loc_seen
@@ -94,11 +126,13 @@ async def process_kmqtt():
                                     type=EventType.TAG_LOC_CHANGE,
                                     tag=dbtag,
                                     data={
-                                        "from": dbtag.last_loc_seen.loc,
+                                        "from": dbtag.last_loc_seen
+                                        and dbtag.last_loc_seen.loc,
                                         "to": e.location,
                                     },
                                 )
                             )
+                            logger.debug(f"Tag {dbtag.epc} moved")
 
                         dbtag.last_loc_seen = mloc
                         dbtag.last_active_at = datetime.now(timezone.utc)
@@ -106,6 +140,7 @@ async def process_kmqtt():
                         await dbtag.save()
                     else:
                         # Tag doesnt exist in DB
+                        logger.debug(f"Adding tag: {e.epc}")
                         ntag = await Tag.create(
                             last_active_at=datetime.now(timezone.utc),
                             status=TagStatus.ACTIVE,
