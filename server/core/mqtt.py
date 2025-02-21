@@ -22,7 +22,7 @@ equeue = asyncio.Queue()
 
 
 async def monitor_lost():
-    asyncio.sleep(5)
+    await asyncio.sleep(5)
     while True:
         try:
             dtime = datetime.now(timezone.utc) - timedelta(seconds=LOST_THRESHOLD)
@@ -42,7 +42,7 @@ async def monitor_lost():
                         type=EventType.TAG_LOST,
                         tag=t,
                         data={
-                            "from": t.last_loc_seen and t.last_loc_seen.loc,
+                            # "from": t.last_loc_seen and t.last_loc_seen.loc,
                             "RSSI": t.RSSI,
                         },
                     )
