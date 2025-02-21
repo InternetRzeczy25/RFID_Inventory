@@ -32,10 +32,10 @@ server_print = logging.StreamHandler(sys.stdout)
 server_print.setFormatter(Formatter(fmt="{name} - {message}", style="{"))
 server_print.setLevel("INFO")
 
-LEVEL = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LEVEL = Literal["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
 
 
-def get_configured_logger(name: str, level: LEVEL = "INFO") -> logging.Logger:
+def get_configured_logger(name: str, level: LEVEL = "WARN") -> logging.Logger:
     logger = logging.getLogger(name)
     logger.addHandler(server_print)
     logger.setLevel(level)
