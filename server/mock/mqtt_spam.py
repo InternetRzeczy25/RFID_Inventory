@@ -54,8 +54,6 @@ async def generate_mqtt_events():
                     await client.publish("RFID/devices", send_dev.mac + message)
                     logger.debug(f"Published: {send_dev.mac + message}")
                 await asyncio.sleep(3)
-        except asyncio.CancelledError:
-            raise asyncio.CancelledError
         except Exception as e:
             logger.exception(str(e))
 
