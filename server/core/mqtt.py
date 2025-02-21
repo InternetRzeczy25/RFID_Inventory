@@ -16,7 +16,7 @@ from server.models import (
     TagStatus,
 )
 
-logger = get_configured_logger("server.mqtt", "DEBUG")
+logger = get_configured_logger(__name__, "DEBUG")
 
 equeue = asyncio.Queue()
 

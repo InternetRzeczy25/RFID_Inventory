@@ -14,7 +14,7 @@ class ReadEvent:
     location: str  # 60:e8:5b:0a:78:5f/1/0/0
 
 
-logger = get_configured_logger("server.parser")
+logger = get_configured_logger(__name__)
 
 
 async def keonn_revents_stream(

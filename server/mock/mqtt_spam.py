@@ -8,7 +8,7 @@ from server.core import KEONN_BROKER_CONF
 from server.models import Device, Location, Tag
 from server.logging import get_configured_logger
 
-logger = get_configured_logger("server.mock", level="DEBUG")
+logger = get_configured_logger(__name__, level="DEBUG")
 
 
 async def generate_mqtt_events():
