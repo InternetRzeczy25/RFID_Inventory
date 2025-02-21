@@ -5,7 +5,7 @@ import re
 import socket
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from httpx import DigestAuth
@@ -171,6 +171,25 @@ async def get_info(device_api: API) -> device_info:
         root.find(".//device/activeReadMode").text,
         root.find(".//device/status").text,
         root.find(".//device/mac").text,
+    )
+
+
+ms = int
+Hz = Literal[1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000]
+
+
+async def beep(
+    device_api: API,
+    device_id: str | None = None,
+    frequency: Hz = 2000,
+    time_on: ms = 100,
+    time_off: ms = 50,
+    duration: ms = 450,
+):
+    if device_id is None:
+        device_id = (await get_info(device_api)).device_id
+    await device_api.get(
+        f"/devices/{device_id}/speak/{frequency}/5/{time_on}/{time_off}/{duration}"
     )
 
 
