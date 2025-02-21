@@ -97,7 +97,7 @@ async def process_kmqtt():
                         mloc = next(filter(lambda lo: lo.loc == e.location, locobjs))
 
                     if not mloc:
-                        logger.error(f"No object in db for location '{e.location}'!")
+                        logger.error(f"No object in db for location {(e.location)!r}!")
 
                     if dbtag:
                         tag_loc = dbtag.last_loc_seen and dbtag.last_loc_seen.loc
