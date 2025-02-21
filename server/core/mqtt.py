@@ -29,6 +29,7 @@ async def monitor_lost():
             qlost = (
                 Tag.filter(last_active_at__lte=dtime)
                 .exclude(status=TagStatus.LOST)
+                .prefetch_related("last_loc_seen")
                 .all()
             )
             lost = await qlost
@@ -42,7 +43,7 @@ async def monitor_lost():
                         type=EventType.TAG_LOST,
                         tag=t,
                         data={
-                            # "from": t.last_loc_seen and t.last_loc_seen.loc,
+                            "from": t.last_loc_seen and t.last_loc_seen.loc,
                             "RSSI": t.RSSI,
                         },
                     )
@@ -99,6 +100,7 @@ async def process_kmqtt():
                         logger.error(f"No object in db for location '{e.location}'!")
 
                     if dbtag:
+                        tag_loc = dbtag.last_loc_seen and dbtag.last_loc_seen.loc
                         # Tag exists in DB
                         if dbtag.status == TagStatus.LOST:
                             tevents.append(
@@ -106,8 +108,7 @@ async def process_kmqtt():
                                     type=EventType.TAG_REAPPEARED,
                                     tag=dbtag,
                                     data={
-                                        "from": dbtag.last_loc_seen
-                                        and dbtag.last_loc_seen.loc,
+                                        "from": tag_loc,
                                         "gone_for": (
                                             datetime.now(timezone.utc)
                                             - dbtag.last_active_at
@@ -117,17 +118,13 @@ async def process_kmqtt():
                             )
                             logger.debug(f"Tag {dbtag.epc} reappeared")
 
-                        if (
-                            dbtag.last_loc_seen
-                            and dbtag.last_loc_seen.loc != e.location
-                        ):
+                        if tag_loc != e.location:
                             tevents.append(
                                 TagEvent(
                                     type=EventType.TAG_LOC_CHANGE,
                                     tag=dbtag,
                                     data={
-                                        "from": dbtag.last_loc_seen
-                                        and dbtag.last_loc_seen.loc,
+                                        "from": tag_loc,
                                         "to": e.location,
                                     },
                                 )
