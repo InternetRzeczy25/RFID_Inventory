@@ -40,7 +40,7 @@ async def generate_mqtt_events():
             while True:
                 if time.time() - last_mutation_time > 10:
                     last_mutation_time = time.time()
-                    logger.info("Mutating tags!")
+                    logger.info("\x1b[1;92mMutating tags!\x1b[0m")
                     for epc in random.sample(epcs, 3):
                         state[epc] = random.choice(s_locs)
 
