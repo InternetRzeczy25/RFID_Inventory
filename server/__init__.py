@@ -31,7 +31,7 @@ def create_app(**app_kwargs) -> FastAPI:
     app.include_router(api_v2, prefix="/api/v2")
 
     app.include_router(ws_router, prefix="/ws")
-    app.include_router(proxy_router, prefix="/proxy")
+    app.include_router(proxy_router)
 
     from server.models import EventType, MQTT_Message
 
