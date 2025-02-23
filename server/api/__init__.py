@@ -5,6 +5,7 @@ Tortoise.init_models(["server.models"], "models")
 from fastapi import APIRouter
 
 from server.api import device, location, tag
+from server.api.configure import router as configure_router
 from server.api.discover import discover_devices
 from server.api.v1 import add_devices, add_locations, add_tags
 
@@ -15,6 +16,7 @@ api_v2.include_router(tag.router)
 api_v2.include_router(location.router)
 
 api_v2.add_api_route("/discover", discover_devices, tags=["Utilities"])
+api_v2.include_router(configure_router, prefix="/configure")
 
 api_v1 = APIRouter(tags=["API_V1"])
 
