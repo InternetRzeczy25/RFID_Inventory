@@ -25,10 +25,9 @@ async def ws_chat(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             for connection in connections.values():
-                await connection.send_text(f"{id}: {data}")
+                await connection.send_text(data)
     except Exception:
         del connections[id]
-        await websocket.close()
 
 
 @router.websocket("/mqtt")

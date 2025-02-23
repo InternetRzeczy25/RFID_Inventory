@@ -1,35 +1,137 @@
 <!DOCTYPE html>
 <html>
-
-<head>
+  <head>
     <title>WebSocket Example</title>
-</head>
-
-<body>
-    <h1>WebSocket Example</h1>
-    <div>
-        <input type="text" id="messageInput" placeholder="Type a message">
-        <button onclick="sendMessage()">Send</button>
+  </head>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    #output {
+      flex-grow: 1;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 1em;
+    }
+    p {
+      margin: 0.5em;
+    }
+    #sender {
+      display: flex;
+      gap: 1ch;
+    }
+    #messageInput {
+      flex-grow: 1;
+      padding: 0.5em;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    #send {
+      padding: 0.5em 1em;
+      border: none;
+      background-color: #28a745;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #send:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    #output::-webkit-scrollbar {
+      width: 1ch;
+    }
+    #output::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 1ch;
+    }
+    #output::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 1ch;
+    }
+    #output::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+    #header {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      min-height: 4em;
+    }
+    #header h1 {
+      margin: 0;
+      flex-grow: 1;
+    }
+  </style>
+  <body>
+    <div id="header">
+      <h1>WebSocket Chat</h1>
+      <p>
+        <input type="text" id="name" placeholder="Enter your name" />
+        <button id="join" onclick="join()">Join the chat</button>
+      </p>
     </div>
     <div id="output"></div>
+    <p id="sender">
+      <input type="text" id="messageInput" placeholder="Type a message" />
+      <button id="send" onclick="sendMessage()" disabled>Send</button>
+    </p>
 
     <script>
-        host = location.host || "172.26.226.211:5000";
-        const ws = new WebSocket(`ws://${host}/ws/chat`);
+      host = location.host || "172.26.226.211:5000";
+      const ws = new WebSocket(`ws://${host}/ws/chat`);
 
-        const outputDiv = document.getElementById("output");
+      const outputDiv = document.getElementById("output");
+      document
+        .getElementById("messageInput")
+        .addEventListener("keypress", function (event) {
+          if (event.key === "Enter") {
+            sendMessage();
+          }
+        });
+      var my_name;
+      function join() {
+        const nameInput = document.getElementById("name");
+        my_name = nameInput.value;
 
         ws.onmessage = function (event) {
-            outputDiv.innerHTML += `<p>${event.data}</p>`;
+          [name, ...rest] = event.data.split(":");
+          if (name === my_name)
+            outputDiv.innerHTML += `<p style="text-align: right;">${rest.join(
+              ":"
+            )}</p>`;
+          else outputDiv.innerHTML += `<p>${event.data}</p>`;
+          outputDiv.lastChild.scrollIntoView();
+        };
+        ws.onclose = function () {
+          ws.send(my_name + " left the chat");
+          outputDiv.innerHTML += "<p>Connection closed</p>";
         };
 
-        function sendMessage() {
-            const messageInput = document.getElementById("messageInput");
-            const message = messageInput.value;
-            ws.send(message);
-            messageInput.value = "";
-        }
-    </script>
-</body>
+        nameInput.disabled = true;
+        document.getElementById("join").disabled = true;
 
+        ws.send(my_name + " joined the chat");
+        document.getElementById("send").disabled = false;
+      }
+
+      function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const message = messageInput.value;
+        ws.send(`${my_name}:\t${message}`);
+        messageInput.value = "";
+      }
+    </script>
+  </body>
 </html>
