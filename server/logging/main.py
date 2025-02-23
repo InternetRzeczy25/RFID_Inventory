@@ -1,7 +1,9 @@
 import logging
 import sys
-from typing import Literal
 from logging import _levelToName
+from typing import Literal
+
+SERVER_LOGGING_LEVEL = "INFO"
 
 
 class Formatter(logging.Formatter):
@@ -28,15 +30,16 @@ class Formatter(logging.Formatter):
         return f"{col}{_levelToName[record.levelno]}{self.reset}:     {super().format(record)}"
 
 
-server_print = logging.StreamHandler(sys.stdout)
-server_print.setFormatter(Formatter(fmt="{name} - {message}", style="{"))
-server_print.setLevel("INFO")
+server_formatter = Formatter(fmt="{name} - {message}", style="{")
 
 LEVEL = Literal["NOTSET", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
 
 
 def get_configured_logger(name: str, level: LEVEL = "WARN") -> logging.Logger:
     logger = logging.getLogger(name)
-    logger.addHandler(server_print)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(server_formatter)
+    stdout_handler.setLevel(SERVER_LOGGING_LEVEL)
+    logger.addHandler(stdout_handler)
     logger.setLevel(level)
     return logger
