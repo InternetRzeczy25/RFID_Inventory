@@ -6,6 +6,7 @@ Tortoise.init_models(["server.models"], "models")
 
 from server.api import api_v1, api_v2
 from server.websockets import router as ws_router
+from server.utils.proxy_fastapi import router as proxy_router
 from tortoise.contrib.fastapi import register_tortoise
 from dotenv import load_dotenv
 from starlette.middleware import Middleware
@@ -33,6 +34,7 @@ def create_app(**app_kwargs) -> FastAPI:
     app.include_router(api_v2, prefix="/api/v2")
 
     app.include_router(ws_router, prefix="/ws")
+    app.include_router(proxy_router, prefix="/proxy")
 
     from server.models import MQTT_Message, EventType
 

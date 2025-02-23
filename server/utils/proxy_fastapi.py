@@ -1,42 +1,76 @@
-from fastapi import APIRouter, FastAPI, Request
+import asyncio
+from contextlib import asynccontextmanager
+from typing import TypeVar
+
+from fastapi import APIRouter, FastAPI, Request, WebSocket
+from fastapi.exceptions import HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi_proxy_lib.core.http import ReverseHttpProxy
 from fastapi_proxy_lib.core.websocket import ReverseWebSocketProxy
-from fastapi_proxy_lib.fastapi.router import RouterHelper
 from httpx import AsyncClient
 
-keonn_ip = "192.168.7.2"
-keonn_http = f"http://{keonn_ip}/"
-keonn_ws = f"ws://{keonn_ip}:11987/"
+from server.models import Device
 
-helper = RouterHelper()
-app = FastAPI(lifespan=helper.get_lifespan())
-
-reverse_http_router = None
-reverse_ws_router = None
-http_proxy = None
-ws_proxy = None
+http_proxies: dict[int, ReverseHttpProxy] = {}
+ws_proxies: dict[int, ReverseWebSocketProxy] = {}
 
 
-@app.get("/remove")
-async def handler():
-    await ws_proxy.aclose()
-    app.router.routes = [
-        r
-        for r in app.routes
-        if r not in (*reverse_ws_router.routes, *reverse_http_router.routes)
-    ]
-    return "Removed"
+@asynccontextmanager
+async def proxy_lifespan(app: FastAPI):
+    yield
+    await asyncio.gather(
+        *(proxy.aclose() for proxy in (*http_proxies.values(), *ws_proxies.values()))
+    )
 
 
-@app.get("/{device:path}/js/core.js")
-async def _(request: Request, device: str):
-    proxy_response = await http_proxy.proxy(request=request, path="js/core.js")
+router = APIRouter(lifespan=proxy_lifespan)
+
+T = TypeVar("T", bound=ReverseHttpProxy | ReverseWebSocketProxy)
+
+
+async def get_proxy(device_id: int, proxies: dict[int, T]) -> T:
+    if device_id not in proxies:
+        ip = await Device.get_or_none(id=device_id).values_list("ip", flat=True)
+        if ip is None:
+            raise HTTPException(status_code=404, detail="Device not found")
+        if proxies is http_proxies:
+            proxies[device_id] = ReverseHttpProxy(
+                AsyncClient(), base_url=f"http://{ip}/"
+            )
+        else:
+            proxies[device_id] = ReverseWebSocketProxy(
+                AsyncClient(), base_url=f"ws://{ip}:11987/"
+            )
+    return proxies[device_id]
+
+
+async def update_ip(device_id: int, ip: str):
+    global http_proxies, ws_proxies
+    if device_id in http_proxies:
+        await http_proxies[device_id].aclose()  # force reload of existing connections
+        http_proxies[device_id] = ReverseHttpProxy(
+            AsyncClient(), base_url=f"http://{ip}/"
+        )
+
+    if device_id in ws_proxies:
+        await ws_proxies[device_id].aclose()
+        ws_proxies[device_id] = ReverseWebSocketProxy(
+            AsyncClient(), base_url=f"ws://{ip}:11987/"
+        )
+    return True
+
+
+@router.get("/{device_id:int}/js/core.js")
+async def _(request: Request, device_id: int):
+    # HACK: Updating the hadcoded websocket address lets us proxy the websocket connection
+    # in the same app without proxying the 11987 port
+    proxy = await get_proxy(device_id, http_proxies)
+    proxy_response = await proxy.proxy(request=request, path="js/core.js")
     if isinstance(proxy_response, StreamingResponse):
         old_content = proxy_response.body_iterator
 
         nc = "".join([x.decode("utf-8") async for x in old_content])
-        nc = nc.replace("${Device.IP}:11987", f"{device}/")
+        nc = nc.replace("${Device.IP}:11987", f"{router.prefix}/ws/{device_id}")
 
         new_resp = StreamingResponse(
             content=iter([nc]),
@@ -48,27 +82,26 @@ async def _(request: Request, device: str):
     return proxy_response
 
 
-@app.get("/add")
-async def handler2():
-    global reverse_http_router, reverse_ws_router, http_proxy, ws_proxy
-
-    http_proxy = ReverseHttpProxy(base_url=keonn_http, follow_redirects=True)
-    reverse_http_router = helper.register_router(
-        http_proxy,
-        APIRouter(prefix="/device1"),
-    )
-
-    ws_proxy = ReverseWebSocketProxy(
-        AsyncClient(), base_url=keonn_ws, follow_redirects=True
-    )
-    reverse_ws_router = helper.register_router(ws_proxy, APIRouter(prefix="/device1"))
-
-    app.include_router(reverse_http_router)
-    app.include_router(reverse_ws_router)
-    return "OK"
+paf = "/{device_id:int}/{path:path}"
+kwargs = {}
 
 
-if __name__ == "__main__":
-    import uvicorn
+# based on fastapi_proxy_lib.fastapi.router._http_register_router
+@router.get(paf, **kwargs)
+@router.post(paf, **kwargs)
+@router.put(paf, **kwargs)
+@router.delete(paf, **kwargs)
+@router.options(paf, **kwargs)
+@router.head(paf, **kwargs)
+@router.patch(paf, **kwargs)
+@router.trace(paf, **kwargs)
+async def http_proxy(device_id: int, path: str, request: Request):
+    proxy = await get_proxy(device_id, http_proxies)
+    return await proxy.proxy(request=request, path=path)
 
-    uvicorn.run(app, port=80)
+
+@router.websocket("/ws/{device_id:int}")
+@router.websocket("/ws/{device_id:int}/{path:path}")
+async def ws_proxy(device_id: int, path: str, websocket: WebSocket):
+    proxy = await get_proxy(device_id, ws_proxies)
+    return await proxy.proxy(websocket=websocket, path=path)
