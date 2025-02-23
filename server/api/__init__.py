@@ -1,3 +1,7 @@
+from tortoise import Tortoise
+
+Tortoise.init_models(["server.models"], "models")
+
 from fastapi import APIRouter
 
 from server.api import device, location, tag
