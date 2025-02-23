@@ -44,12 +44,12 @@ async def get_proxy(device_id: int, proxies: dict[int, T]) -> T:
         if proxies is http_proxies:
             logger.debug(f"Creating new http proxy for {device_id=}, {ip=}")
             proxies[device_id] = ReverseHttpProxy(
-                async_client, base_url=f"http://{ip}/"
+                async_client, base_url=f"http://{ip}/", follow_redirects=True
             )
         else:
             logger.debug(f"Creating new websocket proxy for {device_id=}, {ip=}")
             proxies[device_id] = ReverseWebSocketProxy(
-                async_client, base_url=f"ws://{ip}:11987/"
+                async_client, base_url=f"ws://{ip}:11987/", follow_redirects=True
             )
     return proxies[device_id]
 
@@ -60,13 +60,13 @@ async def update_ip(device_id: int, ip: str):
     if device_id in http_proxies:
         await http_proxies[device_id].aclose()  # force reload of existing connections
         http_proxies[device_id] = ReverseHttpProxy(
-            async_client, base_url=f"http://{ip}/"
+            async_client, base_url=f"http://{ip}/", follow_redirects=True
         )
 
     if device_id in ws_proxies:
         await ws_proxies[device_id].aclose()
         ws_proxies[device_id] = ReverseWebSocketProxy(
-            async_client, base_url=f"ws://{ip}:11987/"
+            async_client, base_url=f"ws://{ip}:11987/", follow_redirects=True
         )
     return True
 
