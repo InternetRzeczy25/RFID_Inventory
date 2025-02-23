@@ -30,7 +30,7 @@ async def proxy_lifespan(app: FastAPI):
     )
 
 
-router = APIRouter(lifespan=proxy_lifespan, prefix="/proxy")
+router = APIRouter(lifespan=proxy_lifespan, prefix="/proxy", tags=["Proxy"])
 
 T = TypeVar("T", bound=ReverseHttpProxy | ReverseWebSocketProxy)
 
