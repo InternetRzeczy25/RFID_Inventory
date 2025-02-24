@@ -17,11 +17,14 @@
       text-align: center;
       color: #333;
     }
-    #output {
+    ul {
       flex-grow: 1;
       overflow-y: auto;
       border: 1px solid #ddd;
       padding: 1em;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5em;
     }
     p {
       margin: 0.5em;
@@ -48,19 +51,29 @@
       background-color: #ccc;
       cursor: not-allowed;
     }
-    #output::-webkit-scrollbar {
+    ul::-webkit-scrollbar {
       width: 1ch;
     }
-    #output::-webkit-scrollbar-track {
+    ul::-webkit-scrollbar-track {
       background: #f1f1f1;
       border-radius: 1ch;
     }
-    #output::-webkit-scrollbar-thumb {
+    ul::-webkit-scrollbar-thumb {
       background: #888;
       border-radius: 1ch;
     }
-    #output::-webkit-scrollbar-thumb:hover {
+    ul::-webkit-scrollbar-thumb:hover {
       background: #555;
+    }
+    li {
+      display: flex;
+      background-color: #e5e4e4;
+      padding: 0.5em;
+      width: fit-content;
+      border-radius: 1em;
+      border: 1px solid #a3a3a3;
+      flex-direction: column;
+      max-width: 80%;
     }
     #header {
       display: flex;
@@ -82,7 +95,7 @@
         <button id="join" onclick="join()">Join the chat</button>
       </p>
     </div>
-    <div id="output"></div>
+    <ul id="output"></ul>
     <p id="sender">
       <input type="text" id="messageInput" placeholder="Type a message" />
       <button id="send" onclick="sendMessage()" disabled>Send</button>
@@ -108,15 +121,15 @@
         ws.onmessage = function (event) {
           [name, ...rest] = event.data.split(":");
           if (name === my_name)
-            outputDiv.innerHTML += `<p style="text-align: right;">${rest.join(
+            outputDiv.innerHTML += `<li style="align-self: end;">${rest.join(
               ":"
-            )}</p>`;
-          else outputDiv.innerHTML += `<p>${event.data}</p>`;
+            )}</li>`;
+          else outputDiv.innerHTML += `<li>${event.data}</li>`;
           outputDiv.lastChild.scrollIntoView();
         };
         ws.onclose = function () {
           ws.send(my_name + " left the chat");
-          outputDiv.innerHTML += "<p>Connection closed</p>";
+          outputDiv.innerHTML += "<li>Connection closed</li>";
         };
 
         nameInput.disabled = true;
