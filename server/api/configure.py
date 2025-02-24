@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
 from fastapi.params import Param
+from tortoise.contrib.pydantic import pydantic_model_creator
 
-from server.api.location import pydantic_batch_Location
 from server.logging import get_configured_logger
 from server.models import Device, Location
 from server.utils.KEONN_interface import (
@@ -55,8 +55,15 @@ async def get_device_info(device_id: int) -> device_info:
     return await get_info(API(ip))
 
 
+pydantic_Locations = pydantic_model_creator(
+    Location,
+    name="Locations",
+    include=("device_id", "id", "loc", "name", "created_at", "modified_at"),
+)
+
+
 @router.get("/{device_id:int}/locations")
-async def get_device_locations(device_id: int) -> pydantic_batch_Location:  # type: ignore
+async def get_device_locations(device_id: int) -> list[pydantic_Locations]:  # type: ignore
     logger.debug(f"Syncing locations for device {device_id}")
     ip = await _get_ip(device_id)
     locs = {loc: name for loc, name in (await get_locations(API(ip)))}
@@ -76,6 +83,4 @@ async def get_device_locations(device_id: int) -> pydantic_batch_Location:  # ty
         await Location.create(loc=loc, name=name, device_id=device_id)
         logger.debug(f"Added {loc=}, {name=!r} to the database")
 
-    return await pydantic_batch_Location.from_queryset(
-        Location.filter(device_id=device_id)
-    )
+    return await pydantic_Locations.from_queryset(Location.filter(device_id=device_id))
