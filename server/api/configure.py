@@ -56,7 +56,7 @@ async def get_device_info(device_id: int) -> device_info:
 
 
 @router.get("/{device_id:int}/locations")
-async def get_device_locations(device_id: int):  # type: ignore
+async def get_device_locations(device_id: int) -> pydantic_batch_Location:  # type: ignore
     logger.debug(f"Syncing locations for device {device_id}")
     ip = await _get_ip(device_id)
     locs = {loc: name for loc, name in (await get_locations(API(ip)))}
