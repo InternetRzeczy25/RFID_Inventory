@@ -52,30 +52,37 @@ class API:
         self.__IP = ipaddress.ip_address(IP)
 
     async def get(self, path: str, **kwargs):
-        async with httpx.AsyncClient() as client:
-            res = await client.get(
-                url=f"http://{self.__IP}:3161{path}",
-                auth=kwargs.pop("auth", self.auth),
-                **kwargs,
-            )
-            res.raise_for_status()
-            return res
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.get(
+                    url=f"http://{self.__IP}:3161{path}",
+                    auth=kwargs.pop("auth", self.auth),
+                    **kwargs,
+                )
+                res.raise_for_status()
+                return res
+        except httpx.RequestError as e:
+            e.args = (f"{e.request.method} request to {e.request.url.host} failed!",)
+            raise e
 
     async def get_xml(self, path: str, **kwargs):
         res = await self.get(path, **kwargs)
         return ET.fromstring(res.text)
 
     async def put(self, path: str, data: Any, **kwargs):
-        async with httpx.AsyncClient() as client:
-            res = await client.put(
-                url=f"http://{self.__IP}:3161{path}",
-                data=data,
-                auth=kwargs.pop("auth", self.auth),
-                **kwargs,
-            )
-            res.raise_for_status()
-            print(res.text)
-            return res
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.put(
+                    url=f"http://{self.__IP}:3161{path}",
+                    data=data,
+                    auth=kwargs.pop("auth", self.auth),
+                    **kwargs,
+                )
+                res.raise_for_status()
+                return res
+        except httpx.RequestError as e:
+            e.args = (f"{e.request.method} request to {e.request.url.host} failed!",)
+            raise e
 
     async def put_xml(self, path: str, data: ET.Element, **kwargs):
         kwargs["headers"] = kwargs.get("headers", {}).update(
