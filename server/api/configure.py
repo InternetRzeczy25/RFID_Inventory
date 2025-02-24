@@ -28,7 +28,10 @@ async def _get_ip(device_id: int):
     return ip
 
 
-@router.post("/{device_id:int}/beep")
+@router.post(
+    "/{device_id:int}/beep",
+    description="Make a sound with the integrated speaker",
+)
 async def do_a_beep(
     device_id: int,
     f: Hz = Param(default=2000, description="Tone frequency"),
@@ -42,7 +45,10 @@ async def do_a_beep(
     return "Beeped"
 
 
-@router.post("/{device_id:int}/write_config")
+@router.post(
+    "/{device_id:int}/write_config",
+    description="Configure the device to work with the server",
+)
 async def write_config(device_id: int):
     ip = await _get_ip(device_id)
     await configure_keonn(API(ip))
@@ -62,7 +68,10 @@ pydantic_Locations = pydantic_model_creator(
 )
 
 
-@router.get("/{device_id:int}/locations")
+@router.get(
+    "/{device_id:int}/locations",
+    description="Fetch the antenna configuration of the device and update the locations in the database",
+)
 async def get_device_locations(device_id: int) -> list[pydantic_Locations]:  # type: ignore
     logger.debug(f"Syncing locations for device {device_id}")
     ip = await _get_ip(device_id)
