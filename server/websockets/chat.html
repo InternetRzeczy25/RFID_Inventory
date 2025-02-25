@@ -102,10 +102,10 @@
     </p>
 
     <script>
-      host = location.host || "172.26.226.211:5000";
-      const ws = new WebSocket(`ws://${host}/ws/chat`);
+      var ws;
 
       const outputDiv = document.getElementById("output");
+      const nameInput = document.getElementById("name");
       document
         .getElementById("messageInput")
         .addEventListener("keypress", function (event) {
@@ -113,36 +113,42 @@
             sendMessage();
           }
         });
-      var my_name;
-      function join() {
-        const nameInput = document.getElementById("name");
-        my_name = nameInput.value;
 
+      function add_message(msg_html) {
+        outputDiv.innerHTML += msg_html;
+        now = new Date();
+        outputDiv.lastChild.title = `${now.getHours()}:${now.getMinutes()}`;
+        outputDiv.lastChild.scrollIntoView();
+      }
+      const SEP = "\xff";
+      function join() {
+        host = location.host || "172.26.226.211:5000";
+        ws = new WebSocket(`ws://${host}/ws/chat`);
         ws.onmessage = function (event) {
-          [name, ...rest] = event.data.split(":");
-          if (name === my_name)
-            outputDiv.innerHTML += `<li style="align-self: end;">${rest.join(
-              ":"
-            )}</li>`;
-          else outputDiv.innerHTML += `<li>${event.data}</li>`;
-          outputDiv.lastChild.scrollIntoView();
+          [name, msg] = event.data.split(SEP);
+          if (name === nameInput.value)
+            add_message(`<li style="align-self: end;">${msg}</li>`);
+          else if (name == "server") add_message(`<li>${msg}</li>`);
+          else add_message(`<li>${name}: ${msg}</li>`);
         };
+
         ws.onclose = function () {
-          ws.send(my_name + " left the chat");
-          outputDiv.innerHTML += "<li>Connection closed</li>";
+          add_message("<li>Connection closed</li>");
+        };
+
+        ws.onopen = function () {
+          ws.send(SEP + nameInput.value);
         };
 
         nameInput.disabled = true;
         document.getElementById("join").disabled = true;
-
-        ws.send(my_name + " joined the chat");
         document.getElementById("send").disabled = false;
       }
 
       function sendMessage() {
         const messageInput = document.getElementById("messageInput");
         const message = messageInput.value;
-        ws.send(`${my_name}:\t${message}`);
+        ws.send(`${message}`);
         messageInput.value = "";
       }
     </script>

@@ -7,7 +7,7 @@ import pathlib as pl
 
 router = APIRouter(tags=["Websockets"])
 
-connections = {}
+connections: dict[str, WebSocket] = {}
 
 
 @router.get("/chat")
@@ -16,16 +16,29 @@ async def chat():
     return FileResponse(paf)
 
 
+SEP = "\xff"
+
+
 @router.websocket("/chat")
 async def ws_chat(websocket: WebSocket):
     await websocket.accept()
     id = str(uuid4())
     connections[id] = websocket
     try:
+        name = await websocket.receive_text()
+        if name[0] == SEP and len(name) > 1:
+            name = name[1:]
+        else:
+            await websocket.send_text(
+                f"server{SEP}No name provided! You will be called {id!r}"
+            )
+            name = id
+        for connection in connections.values():
+            await connection.send_text(f"server{SEP}{name} joined the chat")
         while True:
             data = await websocket.receive_text()
             for connection in connections.values():
-                await connection.send_text(data)
+                await connection.send_text(name + SEP + data)
     except Exception:
         del connections[id]
 
