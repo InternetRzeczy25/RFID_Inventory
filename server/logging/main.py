@@ -27,7 +27,8 @@ class Formatter(logging.Formatter):
 
     def format(self, record):
         col = self.FORMATS.get(record.levelno, self.grey)
-        return f"{col}{_levelToName[record.levelno]}{self.reset}:     {super().format(record)}"
+        head = f"{col}{_levelToName[record.levelno]}{self.reset}:"
+        return f"{head:22}{super().format(record)}"
 
 
 server_formatter = Formatter(fmt="{name} - {message}", style="{")
