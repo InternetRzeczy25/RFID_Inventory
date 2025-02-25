@@ -4,17 +4,18 @@
     <title>WebSocket Example</title>
   </head>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
     body {
       font-family: Arial, sans-serif;
       background-color: #f4f4f4;
-      margin: 0;
-      padding: 0;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
     h1 {
-      text-align: center;
       color: #333;
     }
     ul {
@@ -75,12 +76,16 @@
       flex-direction: column;
       max-width: 80%;
     }
+    li.my {
+      align-self: end;
+    }
     #header {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       justify-content: center;
       min-height: 4em;
+      padding: 0.5em;
     }
     #header h1 {
       margin: 0;
@@ -104,8 +109,13 @@
     <script>
       var ws;
 
+      const fart = new Audio(
+        "https://github.com/74656c/fart.js/blob/master/farts/fart7.mp3?raw=true"
+      );
+
       const outputDiv = document.getElementById("output");
       const nameInput = document.getElementById("name");
+
       document
         .getElementById("messageInput")
         .addEventListener("keypress", function (event) {
@@ -114,22 +124,33 @@
           }
         });
 
-      function add_message(msg_html) {
-        outputDiv.innerHTML += msg_html;
-        now = new Date();
-        outputDiv.lastChild.title = `${now.getHours()}:${now.getMinutes()}`;
-        outputDiv.lastChild.scrollIntoView();
-      }
+      var messages = [];
+
       const SEP = "\xff";
+      var my_name = "";
+      function add_message(
+        msg,
+        sender,
+        time_str = new Date().toLocaleString()
+      ) {
+        if (sender === my_name || sender === "server")
+          outputDiv.innerHTML += `<li>${msg}</li>`;
+        else outputDiv.innerHTML += `<li>${sender}: ${msg}</li>`;
+        if (sender === my_name) outputDiv.lastChild.className = "my";
+        outputDiv.lastChild.title = time_str;
+        outputDiv.lastChild.scrollIntoView();
+        if (sender !== "server") messages.push([msg, sender, time_str]);
+      }
+
       function join() {
         host = location.host || "172.26.226.211:5000";
         ws = new WebSocket(`ws://${host}/ws/chat`);
+        my_name = nameInput.value;
         ws.onmessage = function (event) {
-          [name, msg] = event.data.split(SEP);
-          if (name === nameInput.value)
-            add_message(`<li style="align-self: end;">${msg}</li>`);
-          else if (name == "server") add_message(`<li>${msg}</li>`);
-          else add_message(`<li>${name}: ${msg}</li>`);
+          [sender, msg, new_name] = event.data.split(SEP);
+          if (new_name) my_name = new_name;
+          add_message(msg, sender);
+          if (!document.hasFocus()) fart.play();
         };
 
         ws.onclose = function () {
@@ -137,7 +158,7 @@
         };
 
         ws.onopen = function () {
-          ws.send(SEP + nameInput.value);
+          ws.send(SEP + my_name);
         };
 
         nameInput.disabled = true;
@@ -151,6 +172,102 @@
         ws.send(`${message}`);
         messageInput.value = "";
       }
+
+      window.onload = function () {
+        nameInput.focus();
+        nameInput.value = localStorage.getItem("name") || "";
+
+        if (localStorage.getItem("messages")) {
+          JSON.parse(localStorage.getItem("messages")).forEach((msg) =>
+            add_message(msg[1], msg[0], msg[2])
+          );
+          localStorage.removeItem("messages");
+        }
+
+        localStorage.getItem("msgs") &&
+          JSON.parse(localStorage.getItem("msgs"))
+            .filter((msg) => msg[0])
+            .forEach((msg) => add_message(...msg));
+
+        if (nameInput.value) join();
+      };
+
+      window.onbeforeunload = function () {
+        localStorage.setItem("msgs", JSON.stringify(messages));
+        localStorage.setItem("name", my_name);
+      };
+
+      /*
+       **
+       * This handler retrieves the images from the clipboard as a base64 string and returns it in a callback.
+       *
+       * @param pasteEvent
+       * @param callback
+       */
+      function retrieveImageFromClipboardAsBase64(
+        pasteEvent,
+        callback,
+        imageFormat
+      ) {
+        if (pasteEvent.clipboardData == false) {
+          if (typeof callback == "function") {
+            callback(undefined);
+          }
+        }
+
+        // retrive elements from clipboard
+        var items = pasteEvent.clipboardData.items;
+
+        if (items == undefined) {
+          if (typeof callback == "function") {
+            callback(undefined);
+          }
+        }
+        // loop the elements
+        for (var i = 0; i < items.length; i++) {
+          // Skip content if not image
+          if (items[i].type.indexOf("image") == -1) continue;
+          // Retrieve image on clipboard as blob
+          var blob = items[i].getAsFile();
+
+          // Create an abstract canvas and get context
+          var mycanvas = document.createElement("canvas");
+          var ctx = mycanvas.getContext("2d");
+
+          // Create an image
+          var img = new Image();
+
+          // Once the image loads, render the img on the canvas
+          img.onload = function () {
+            // Update dimensions of the canvas with the dimensions of the image
+            mycanvas.width = this.width;
+            mycanvas.height = this.height;
+
+            // Draw the image
+            ctx.drawImage(img, 0, 0);
+
+            // Execute callback with the base64 URI of the image
+            if (typeof callback == "function") {
+              callback(mycanvas.toDataURL(imageFormat || "image/png"));
+            }
+          };
+
+          // Crossbrowser support for URL
+          var URLObj = window.URL || window.webkitURL;
+
+          // Creates a DOMString containing a URL representing the object given in the parameter
+          // namely the original Blob
+          img.src = URLObj.createObjectURL(blob);
+        }
+      }
+      window.addEventListener("paste", (event) => {
+        if (messageInput !== document.activeElement) return;
+        if (event.clipboardData.files.length === 0) return;
+        event.preventDefault();
+        retrieveImageFromClipboardAsBase64(event, (data) => {
+          ws.send(`<img src="${data}" />`);
+        });
+      });
     </script>
   </body>
 </html>

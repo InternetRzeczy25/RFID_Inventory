@@ -30,9 +30,12 @@ async def ws_chat(websocket: WebSocket):
             name = name[1:]
         else:
             await websocket.send_text(
-                f"server{SEP}No name provided! You will be called {id!r}"
+                f"server{SEP}No name provided! You will be called {id!r}{SEP}{id}{SEP}"
             )
             name = id
+        await websocket.send_text(
+            f"server{SEP}There are {len(connections) - 1} other users online"
+        )
         for connection in connections.values():
             await connection.send_text(f"server{SEP}{name} joined the chat")
         while True:
