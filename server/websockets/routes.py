@@ -46,15 +46,22 @@ async def ws_chat(websocket: WebSocket):
         del connections[id]
 
 
+mqtt_websockets: list[WebSocket] = []
+
+
+async def notify_sessions(message: MQTT_Message):
+    for ws in mqtt_websockets:
+        await ws.send_json(message.model_dump())
+
+
 @router.websocket("/mqtt")
 async def ws_mqtt(websocket: WebSocket):
     await websocket.accept()
-
-    def pass_message(message: MQTT_Message):
-        websocket.send_json(message.model_dump())
-
+    mqtt_websockets.append(websocket)
     try:
         while True:
-            await asyncio.sleep(0.1)
+            await websocket.receive()
     except Exception:
-        await websocket.close()
+        pass
+    finally:
+        mqtt_websockets.remove(websocket)
