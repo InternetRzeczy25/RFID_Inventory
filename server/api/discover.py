@@ -4,7 +4,7 @@ from fastapi.params import Param
 from server.api._base import forward_exception
 from server.api.device import Device, pydantic_batch_Device
 from server.logging import get_configured_logger
-from server.utils.KEONN_interface import API, get_info, get_metadata, beep
+from server.utils.KEONN_interface import API, get_info, get_metadata, make_sound
 from server.utils.detect import KeonnFinder
 
 logger = get_configured_logger(__name__, "DEBUG")
@@ -19,7 +19,7 @@ async def discover_devices(ip: str | None = Param(None)) -> list[pydantic_batch_
             device = API(ip)
             info = await get_info(device)
             meta = await get_metadata(device)
-            await beep(device, meta.id)
+            await make_sound(device, meta.id)
             logger.debug(f"Found device {(meta.id)!r}")
             dev, added = await Device.get_or_create(
                 mac=info.mac,
@@ -53,7 +53,7 @@ async def discover_devices(ip: str | None = Param(None)) -> list[pydantic_batch_
             ip = found[mac]["ip"]
             device = API(ip)
             meta = await get_metadata(device)
-            await beep(device, meta.id)
+            await make_sound(device, meta.id)
             to_create.append(
                 Device(
                     mac=mac,

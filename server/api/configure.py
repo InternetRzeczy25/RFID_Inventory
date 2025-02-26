@@ -8,7 +8,7 @@ from server.models import Device, Location
 from server.utils.KEONN_interface import (
     API,
     Hz,
-    beep,
+    make_sound,
     configure_keonn,
     device_info,
     get_info,
@@ -30,7 +30,7 @@ async def _get_ip(device_id: int):
 
 @router.post(
     "/{device_id:int}/beep",
-    description="Make a sound with the integrated speaker",
+    description="Make a sound from the device",
 )
 async def do_a_beep(
     device_id: int,
@@ -41,7 +41,7 @@ async def do_a_beep(
 ):
     ip = await _get_ip(device_id)
     logger.debug(f"Beeping {ip=} {f=} {t_on=} {t_off=} {d=}")
-    await beep(API(ip), None, f, t_on, t_off, d)
+    await make_sound(API(ip), None, f, t_on, t_off, d)
     return "Beeped"
 
 
