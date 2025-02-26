@@ -1,15 +1,16 @@
+import asyncio
 import ipaddress
 import json
 import pathlib as pl
 import re
-import socket
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Literal
-import asyncio
+
 import httpx
 from httpx import DigestAuth
 
+from server.core import KEONN_BROKER_CONF
 from server.models import device_metadata
 
 
@@ -30,14 +31,16 @@ def assemble_mqtt_config(events_dir: pl.Path):
 CONFIG_DIR = pl.Path(__file__).parent / "device_conf"
 
 
-def get_mqtt_service_config(broker_ip: str | None = None) -> dict[str, str]:
+def get_mqtt_service_config(broker_config: str | None = None) -> dict[str, str]:
     with open(CONFIG_DIR / "service.json") as jason:
         default_config = json.load(jason)
 
-        my_ip = socket.gethostbyname(socket.gethostname())
-        broker_addr = broker_ip or my_ip
+        if broker_config is None:
+            host = KEONN_BROKER_CONF["hostname"]
+            port = KEONN_BROKER_CONF["port"]
+            broker_config = f"tcp://{host}:{port}"
 
-        default_config["broker"] = f"tcp://{broker_addr}:1883"
+        default_config["broker"] = broker_config
 
         mqtt_conf = assemble_mqtt_config(CONFIG_DIR / "events")
         default_config["config"] = json.dumps(mqtt_conf)
