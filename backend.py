@@ -1,12 +1,15 @@
 import asyncio
-import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from server.core.mqtt import monitor_lost, process_kmqtt, event_sink
-from server.mock.mqtt_spam import generate_mqtt_events
-from server import create_app
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+load_dotenv()
+
+from server import create_app
+from server.core.mqtt import event_sink, monitor_lost, process_kmqtt
 
 
 @asynccontextmanager
@@ -15,7 +18,6 @@ async def lifespan(app: FastAPI):
     tasks.append(asyncio.create_task(event_sink()))
     tasks.append(asyncio.create_task(process_kmqtt()))
     tasks.append(asyncio.create_task(monitor_lost()))
-    tasks.append(asyncio.create_task(generate_mqtt_events()))
 
     yield
     for task in tasks:

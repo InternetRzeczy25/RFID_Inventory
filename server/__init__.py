@@ -1,6 +1,5 @@
 import os
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware import Middleware
@@ -12,8 +11,6 @@ from server.api import api_v1, api_v2
 from server.utils.proxy_fastapi import router as proxy_router
 from server.websockets import router as ws_router
 import httpx
-
-load_dotenv()
 
 
 def create_app(**app_kwargs) -> FastAPI:
