@@ -7,7 +7,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi_proxy_lib.core.http import ReverseHttpProxy
 from fastapi_proxy_lib.core.websocket import ReverseWebSocketProxy
-from httpx import AsyncClient
+from httpx import AsyncClient, DigestAuth
 
 from server.logging import get_configured_logger
 from server.models import Device
@@ -18,7 +18,9 @@ logger.handlers[0].setLevel("WARNING")
 http_proxies: dict[int, ReverseHttpProxy] = {}
 ws_proxies: dict[int, ReverseWebSocketProxy] = {}
 
-async_client = AsyncClient()
+
+auth = DigestAuth("admin", "admin")
+async_client = AsyncClient(auth=auth)
 
 
 @asynccontextmanager
