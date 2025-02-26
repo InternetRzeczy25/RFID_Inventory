@@ -73,6 +73,20 @@ async def update_ip(device_id: int, ip: str):
     return True
 
 
+async def __replace_in_file_response(response: StreamingResponse, old: str, new: str):
+    old_content = response.body_iterator
+    nc = "".join([x.decode("utf-8") async for x in old_content])
+    nc = nc.replace(old, new)
+    logger.debug(f"Replacing {old=} to {new=}")
+    new_resp = StreamingResponse(
+        content=iter([nc]),
+        status_code=response.status_code,
+        headers=response.headers.update({"Content-Length": str(len(nc))}),
+        media_type=response.media_type,
+    )
+    return new_resp
+
+
 @router.get("/{device_id:int}/js/core.js")
 async def _(request: Request, device_id: int):
     # HACK: Updating the hardcoded websocket address lets us proxy the
@@ -80,18 +94,24 @@ async def _(request: Request, device_id: int):
     proxy = await get_proxy(device_id, http_proxies)
     proxy_response = await proxy.proxy(request=request, path="js/core.js")
     if isinstance(proxy_response, StreamingResponse):
-        old_content = proxy_response.body_iterator
         new_websocket = f"{request.url.netloc}{router.prefix}/ws/{device_id}"
-        nc = "".join([x.decode("utf-8") async for x in old_content])
-        nc = nc.replace("${Device.IP}:11987", new_websocket)
-        logger.debug(f"Replacing core.js host to {new_websocket!r}")
-        new_resp = StreamingResponse(
-            content=iter([nc]),
-            status_code=proxy_response.status_code,
-            headers=proxy_response.headers.update({"Content-Length": str(len(nc))}),
-            media_type=proxy_response.media_type,
+        return await __replace_in_file_response(
+            proxy_response, "${Device.IP}:11987", new_websocket
         )
-        return new_resp
+
+    return proxy_response
+
+
+@router.get("/{device_id:int}/js/utils/REST.js")
+async def _(request: Request, device_id: int):
+    proxy = await get_proxy(device_id, http_proxies)
+    proxy_response = await proxy.proxy(request=request, path="js/utils/REST.js")
+    if isinstance(proxy_response, StreamingResponse):
+        address = f"{request.url.netloc}{router.prefix}/{device_id}"
+        return await __replace_in_file_response(
+            proxy_response, "${this.baseUrl}", address
+        )
+
     return proxy_response
 
 
