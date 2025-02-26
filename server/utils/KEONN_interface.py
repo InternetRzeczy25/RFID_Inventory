@@ -6,7 +6,7 @@ import socket
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Literal
-
+import asyncio
 import httpx
 from httpx import DigestAuth
 
@@ -197,6 +197,36 @@ async def beep(
         device_id = (await get_info(device_api)).device_id
     await device_api.get(
         f"/devices/{device_id}/speak/{frequency}/5/{time_on}/{time_off}/{duration}"
+    )
+
+
+async def buzz(
+    device_api: API,
+    device_id: str | None = None,
+    time_on: ms = 300,
+    time_off: ms = 0,
+    duration: ms = 300,
+):
+    if device_id is None:
+        device_id = (await get_info(device_api)).device_id
+    await device_api.get(f"/devices/{device_id}/buzzer/{time_on}/{time_off}/{duration}")
+
+
+# some models have the speaker builtin and some a buzzer
+# so we make sound with both to be sure
+async def make_sound(
+    device_api: API,
+    device_id: str | None = None,
+    frequency: Hz = 2000,
+    time_on: ms = 100,
+    time_off: ms = 50,
+    duration: ms = 450,
+):
+    if device_id is None:
+        device_id = (await get_info(device_api)).device_id
+    await asyncio.gather(
+        beep(device_api, device_id, frequency, time_on, time_off, duration),
+        buzz(device_api, device_id, max(time_on, 200), time_off, max(duration, 200)),
     )
 
 
