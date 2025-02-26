@@ -9,6 +9,7 @@ from server.utils.KEONN_interface import (
     API,
     Hz,
     make_sound,
+    restart_device,
     configure_keonn,
     device_info,
     get_info,
@@ -53,6 +54,13 @@ async def write_config(device_id: int):
     ip = await _get_ip(device_id)
     await configure_keonn(API(ip))
     return "Configured"
+
+
+@router.post("/{device_id:int}/restart")
+async def restart(device_id: int):
+    ip = await _get_ip(device_id)
+    await restart_device(API(ip))
+    return "Restarted"
 
 
 @router.get("/{device_id:int}/info")
