@@ -150,7 +150,10 @@ async def configure_keonn(device_api: API):
     mqtt_conf = get_mqtt_service_config()
     mqtt_conf["clientId"] = device_id
     req = xml_request_from_dict(mqtt_conf)
+    await asyncio.sleep(0.3)
     await device_api.put_xml("/system/services/byId/MQTTService", req)
+    await device_api.get(f"/devices/{device_id}/confSave")
+    await device_api.get("/conf/save")
 
 
 async def get_metadata(device_api: API) -> device_metadata:
