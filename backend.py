@@ -9,12 +9,13 @@ from fastapi import FastAPI
 load_dotenv()
 
 from server import create_app
-from server.core.mqtt import event_sink, monitor_lost, process_kmqtt
+from server.core.mqtt import event_sink, monitor_lost, process_kmqtt, process_status
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     tasks: list[asyncio.Task] = []
+    tasks.append(asyncio.create_task(process_status()))
     tasks.append(asyncio.create_task(event_sink()))
     tasks.append(asyncio.create_task(process_kmqtt()))
     tasks.append(asyncio.create_task(monitor_lost()))
