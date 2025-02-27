@@ -14,7 +14,22 @@ from server.core import KEONN_BROKER_CONF
 from server.models import device_metadata
 
 
+def cfg_to_dict(path: pl.Path) -> dict[str, str]:
+    with open(path) as jason:
+        return json.load(jason)
+
+
+def xml_request_from_dict(data: dict[str, str]) -> ET.Element:
+    req = ET.Element("request")
+    for attr in data:
+        el = ET.Element(attr)
+        el.text = data[attr]
+        req.append(el)
+    return req
+
+
 def assemble_mqtt_config(events_dir: pl.Path):
+    # https://wiki.keonn.com/software/advannet/services/mqtt-service#h.vtmjyrh1zfu9
     config = []
     for file in events_dir.glob("*.js"):
         with open(file) as js:
@@ -33,19 +48,18 @@ CONFIG_DIR = pl.Path(__file__).parent / "device_conf"
 
 
 def get_mqtt_service_config(broker_config: str | None = None) -> dict[str, str]:
-    with open(CONFIG_DIR / "service.json") as jason:
-        default_config = json.load(jason)
+    default_config = cfg_to_dict(CONFIG_DIR / "service.json")
 
-        if broker_config is None:
-            host = KEONN_BROKER_CONF["hostname"]
-            port = KEONN_BROKER_CONF["port"]
-            broker_config = f"tcp://{host}:{port}"
+    if broker_config is None:
+        host = KEONN_BROKER_CONF["hostname"]
+        port = KEONN_BROKER_CONF["port"]
+        broker_config = f"tcp://{host}:{port}"
 
-        default_config["broker"] = broker_config
+    default_config["broker"] = broker_config
 
-        mqtt_conf = assemble_mqtt_config(CONFIG_DIR / "events")
-        default_config["config"] = json.dumps(mqtt_conf)
-        return default_config
+    mqtt_conf = assemble_mqtt_config(CONFIG_DIR / "events")
+    default_config["config"] = json.dumps(mqtt_conf)
+    return default_config
 
 
 class API:
@@ -94,20 +108,6 @@ class API:
         )
         res = await self.put(path, ET.tostring(data), **kwargs)
         return ET.fromstring(res.text)
-
-
-def cfg_to_dict(path: pl.Path) -> dict[str, str]:
-    with open(path) as jason:
-        return json.load(jason)
-
-
-def xml_request_from_dict(data: dict[str, str]) -> ET.Element:
-    req = ET.Element("request")
-    for attr in data:
-        el = ET.Element(attr)
-        el.text = data[attr]
-        req.append(el)
-    return req
 
 
 async def restart_device(device_api: API):
