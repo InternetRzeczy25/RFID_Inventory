@@ -18,10 +18,11 @@ def assemble_mqtt_config(events_dir: pl.Path):
     config = []
     for file in events_dir.glob("*.js"):
         with open(file) as js:
+            event, topic = file.stem.split("@")
             config.append(
                 {
-                    "event": file.stem,
-                    "topic": "'RFID/devices'",
+                    "event": event,
+                    "topic": f"'RFID/{topic}'",
                     "body": re.sub(r"\s+", " ", js.read().replace('"', "'")),
                 }
             )
@@ -234,7 +235,6 @@ async def make_sound(
 
 
 if __name__ == "__main__":
-    import asyncio
 
     async def main():
         try:
