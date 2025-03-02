@@ -7,7 +7,9 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi_proxy_lib.core.http import ReverseHttpProxy
 from fastapi_proxy_lib.core.websocket import ReverseWebSocketProxy
+from fastapi_proxy_lib.core._tool import check_base_url
 from httpx import AsyncClient, DigestAuth
+
 
 from server.logging import get_configured_logger
 from server.models import Device
@@ -19,16 +21,22 @@ http_proxies: dict[int, ReverseHttpProxy] = {}
 ws_proxies: dict[int, ReverseWebSocketProxy] = {}
 
 
-auth = DigestAuth("admin", "admin")
-async_client = AsyncClient(auth=auth)
+class AuthedClient(AsyncClient):
+    def __init__(
+        self,
+    ):
+        super().__init__(auth=DigestAuth("admin", "admin"))
+
+
+http_client = AuthedClient()
 
 
 @asynccontextmanager
 async def proxy_lifespan(app: FastAPI):
     yield
-    logger.debug(f"Closing {len(http_proxies) + len(ws_proxies)} proxies")
+    logger.debug(f"Closing {len(ws_proxies) + 1} proxy clients")
     await asyncio.gather(
-        *(proxy.aclose() for proxy in (*http_proxies.values(), *ws_proxies.values()))
+        *(proxy.aclose() for proxy in (http_client, *ws_proxies.values()))
     )
 
 
@@ -46,12 +54,12 @@ async def get_proxy(device_id: int, proxies: dict[int, T]) -> T:
         if proxies is http_proxies:
             logger.debug(f"Creating new http proxy for {device_id=}, {ip=}")
             proxies[device_id] = ReverseHttpProxy(
-                async_client, base_url=f"http://{ip}/", follow_redirects=True
+                http_client, base_url=f"http://{ip}/", follow_redirects=True
             )
         else:
             logger.debug(f"Creating new websocket proxy for {device_id=}, {ip=}")
             proxies[device_id] = ReverseWebSocketProxy(
-                async_client, base_url=f"ws://{ip}:11987/", follow_redirects=True
+                AuthedClient(), base_url=f"ws://{ip}:11987/", follow_redirects=True
             )
     return proxies[device_id]
 
@@ -60,15 +68,11 @@ async def update_ip(device_id: int, ip: str):
     global http_proxies, ws_proxies
     logger.debug(f"Updating {device_id=} to {ip=}")
     if device_id in http_proxies:
-        await http_proxies[device_id].aclose()  # force reload of existing connections
-        http_proxies[device_id] = ReverseHttpProxy(
-            async_client, base_url=f"http://{ip}/", follow_redirects=True
-        )
-
+        http_proxies[device_id].base_url = check_base_url(f"http://{ip}/")
     if device_id in ws_proxies:
-        await ws_proxies[device_id].aclose()
+        await ws_proxies[device_id].aclose()  # force reload of existing connections
         ws_proxies[device_id] = ReverseWebSocketProxy(
-            async_client, base_url=f"ws://{ip}:11987/", follow_redirects=True
+            AuthedClient(), base_url=f"ws://{ip}:11987/", follow_redirects=True
         )
     return True
 
