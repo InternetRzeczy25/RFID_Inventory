@@ -114,6 +114,11 @@ async def restart_device(device_api: API):
     await device_api.get("/system/runtime/reboot")
 
 
+async def set_RF(device_api: API, state: bool):
+    device_id = (await get_info(device_api)).device_id
+    await device_api.get(f"/devices/{device_id}/{'start' if state else 'stop'}")
+
+
 def __def_to_location(def_: str, mac: str = "") -> tuple[str, str]:
     """transform KEONN definition string to our system location id and antenna name
     def_ format: https://wiki.keonn.com/software/advannet/development/rest-api-development#:~:text=%3C/request%3E-,Explanation,-%3A
